@@ -1,0 +1,7 @@
+mxnet-cu101mkl
+mxboard
+pydicom
+boto3
+pandas
+tqdm
+pillow
