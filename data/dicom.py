@@ -6,6 +6,7 @@ import pydicom as dicom
 
 from mxnet import nd
 from mxnet import gluon
+from mxnet.image import CreateAugmenter
 
 class DICOMFolderDataset(gluon.data.dataset.Dataset):
   def __init__(self, data_dir, labels, flag=1):
