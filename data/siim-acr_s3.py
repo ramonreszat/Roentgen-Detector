@@ -23,15 +23,15 @@ bucket.download_file('train-dev.csv', 'siim-acr-data/train-dev.csv')
 bucket.download_file('learn-pneumonia/pneumothorax-devset.zip', 'siim-acr-data/pneumothorax-devset.zip')
 
 # fetch the training data
-#bucket.download_file('train.csv', 'siim-acr-data/train.csv')
-#bucket.download_file('learn-pneumonia/pneumothorax-trainset.zip', 'siim-acr-data/pneumothorax-trainset.zip')
+bucket.download_file('train.csv', 'siim-acr-data/train.csv')
+bucket.download_file('learn-pneumonia/pneumothorax-trainset.zip', 'siim-acr-data/pneumothorax-trainset.zip')
 
 # see DICOM folder datset for an overview of the unzipped directory structure
 zipfile.ZipFile('siim-acr-data/pneumothorax-devset.zip', 'r').extractall('siim-acr-data/dev-pneumothorax')
-#zipfile.ZipFile('siim-acr-data/pneumothorax-trainset.zip', 'r').extractall('siim-acr-data/train-pneumothorax')
+zipfile.ZipFile('siim-acr-data/pneumothorax-trainset.zip', 'r').extractall('siim-acr-data/train-pneumothorax')
 os.remove('siim-acr-data/pneumothorax-devset.zip')
-#os.remove('siim-acr-data/pneumothorax-trainset.zip')
+os.remove('siim-acr-data/pneumothorax-trainset.zip')
 
 # delete hidden archive folder
 shutil.rmtree('siim-acr-data/dev-pneumothorax/__MACOSX')
-#shutil.rmtree('siim-acr-data/train-pneumothorax/__MACOSX')
+shutil.rmtree('siim-acr-data/train-pneumothorax/__MACOSX')
