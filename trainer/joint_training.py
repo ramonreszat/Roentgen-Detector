@@ -1,10 +1,9 @@
 import mxnet as mx
-from mxnet import gluon,autograd
+from mxnet import nd,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
 from network.rcnn import RoentgenFasterRCNN
 
-from mxnet.symbol.contrib import box_iou
 from mxnet.symbol import MakeLoss
 
 from tqdm import tqdm
@@ -33,6 +32,9 @@ pneumothorax.hybridize()
 
 trainer = gluon.Trainer(pneumothorax.collect_params(), 'adam', {'learning_rate': 3E-4, 'wd': 0.0001})
 
+def box_iou(data, states):
+    return nd.contrib.box_iou(data[0], data[1], format='corner'), _
+
 with SummaryWriter(logdir='./logs/pneumothorax-fasterrcnn') as log:
     for epoch in range(epochs):
         with tqdm(total=int(len(train_data)/batch_size), desc='Joint Training (RPN + Fast R-CNN): Epoch {}'.format(epoch)) as pg:
@@ -42,18 +44,18 @@ with SummaryWriter(logdir='./logs/pneumothorax-fasterrcnn') as log:
                 gtboxes = labels.as_in_context(ctx)
 
                 X = data.reshape((0, 1, 1024, 1024))
+                gtboxes = labels.reshape(0,1,4)
 
                 with autograd.record():
                     bboxes, classes = pneumothorax(X)
 
                     # binary classification
-                    # nd box_iou
-                    recognized = box_iou(bboxes, gtboxes, format='corner') > 0.3
+                    ious, _ = nd.contrib.foreach(box_iou, [bboxes, gtboxes], [])
 
                     cross_entropy = gluon.loss.SoftmaxCrossEntropyLoss()
-                    class_loss = MakeLoss(cross_entropy(classes,recognized), normalization='batch')
+                    class_loss = MakeLoss(cross_entropy(classes, ious>0.3), normalization='batch')
 
-                    l1 = recognized * mx.sym.abs(bboxes - labels)
+                    l1 = ious>0.3 * mx.sym.abs(bboxes - labels)
                     reg_loss = MakeLoss(l1, valid_thresh=1, normalization='valid')
 
                     detector_loss = class_loss + 10*reg_loss
