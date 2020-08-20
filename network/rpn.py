@@ -20,7 +20,9 @@ class ProposalNetwork(gluon.nn.HybridBlock):
 
 		cls_scores = self.cls_score(y)
 		bbox_offsets = self.bbox_pred(y)
-		return cls_scores, bbox_offsets
+
+		cls_prob = F.softmax(data=cls_scores.reshape((0, 2, -1, 0), axis=1))
+		return cls_prob, bbox_offsets
 
 
 class ProposalLayer(gluon.nn.HybridBlock):
