@@ -17,11 +17,10 @@ class ProposalNetwork(gluon.nn.HybridBlock):
 
 	def hybrid_forward(self, F, x):
 		y = self.conv(x)
-
 		cls_scores = self.cls_score(y)
-		bbox_offsets = self.bbox_pred(y)
-
 		cls_prob = F.softmax(data=cls_scores.reshape((0, 2, -1, 0), axis=1))
+		cls_prob = cls_prob.reshape((0, 2*self.num_anchors, self.anchor_points[0], self.anchor_points[1]))
+		bbox_offsets = self.bbox_pred(y)
 		return cls_prob, bbox_offsets
 
 
