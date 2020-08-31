@@ -16,10 +16,6 @@ class AnchorTargetLayer(gluon.nn.HybridBlock):
         self._negative_iou_th = negative_iou_threshold
         self._rpn_batch_size = rpn_batch_size
         self._rpn_fg_num = int(fg_fraction * rpn_batch_size)
-        # Initialize constant parameters here, if not later will be init by global initializer
-        # self._base_anchors.initialize()
-        # self._feat_stride.initialize()
-        # self._allowed_border.initialize()
 
     def hybrid_forward(self, F, rpn_cls_score, gt_boxes, im_info, _base_anchors, _feat_stride, _allowed_border):
         labels, bbox_targets = F.Custom(rpn_cls_score, gt_boxes, im_info, _base_anchors, _feat_stride, _allowed_border,
