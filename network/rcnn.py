@@ -1,7 +1,7 @@
 import numpy as np
 
 from mxnet.gluon import nn
-from mxnet import nd,symbol,gluon,init
+from mxnet import nd,gluon,autograd
 
 from network.resnet import RoentgenResnet
 from network.rpn import ProposalNetwork, ROIAlignmentLayer
@@ -13,42 +13,52 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 
     Parameters
     ----------
-    num_classes : output
-        Fast R-CNN classification task.
+    num_classes : number of outputs
+        for the Fast R-CNN classification task.
+	rpn_head : proposal mode
+		for alternating and class agnostic training.
 
     """
-	def __init__(self, num_classes=2, joint_training=True, Nt=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5]):
+	def __init__(self, num_classes=2, iou_threshold=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False):
 		super(RoentgenFasterRCNN, self).__init__()
-		self.joint_training = joint_training
+		self.rpn_head = rpn_head
 
+		# backbone feature extraction network
 		self.resnet = RoentgenResnet(64, conv_arch=[(2, 64), (2, 128), (2, 256), (2, 512)])
-
+		# RPN head region proposal network 
 		self.rpn = ProposalNetwork(512, num_anchors=9, anchor_points=(32,32))
+		# anchor boxes of fixed size and ratio
+		self.anchor = AnchorBoxDecoder(32, iou_threshold=iou_threshold, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5])
 
-		if joint_training:
+		if not rpn_head:
 			self.alignment = ROIAlignmentLayer((8,8), spatial_scale=0.03125)
-			self.fc = nn.HybridSequential()
-			self.fc.add(nn.Dense(2048, flatten=False, activation='relu'))
-			self.fc.add(nn.Dense(1024, flatten=False, activation='relu'))
 
-			self.bbox_offset = nn.Dense(4, flatten=False)
-			self.class_pred= nn.Dense(num_classes, flatten=False)
+			# Fast R-CNN detector
+			self.fast_rcnn = nn.HybridSequential()
+			self.fast_rcnn.add(nn.Dense(2048, flatten=False, activation='relu'))
+			self.fast_rcnn.add(nn.Dense(1024, flatten=False, activation='relu'))
+
+			self.rcnn_bbox_offset = nn.Dense(4, flatten=False)
+			self.rcnn_detector = nn.Dense(num_classes, flatten=False)
 
 
 	def hybrid_forward(self, F, X):
 		feature_map = self.resnet(X)
 
-		cls_scores, bbox_pred = self.rpn(feature_map)
-		#TODO: create bbox rois with AnchorBoxDecoder
+		# ROI classification and regression
+		rpn_cls_scores, rpn_bbox_pred = self.rpn(feature_map)
+		# decode bounding boxes from confidence scores and offsets
+		rpn_rois_pred, rpn_rois_scores = self.anchor(rpn_bbox_pred)
 
-		if self.joint_training:
-			regions = self.alignment(feature_map, rois)
+		if not self.rpn_head:
+			regions = self.alignment(feature_map, rpn_rois_pred)
 			# 5 proposals post nms -> flatten if only one is allowed
-			roi_features = self.fc(F.reshape(regions, shape=(0,5,-1)))
+			roi_features = self.fast_rcnn(F.reshape(regions, shape=(0,5,-1)))
 
-			bboxes = F.slice_axis(rois, axis=2, begin=1, end=None) + self.bbox_offset(roi_features)
-			classes = self.class_pred(roi_features)
+			bbox_pred = rpn_rois_pred + self.rcnn_bbox_offset(roi_features)
+			class_pred = self.rcnn_detector(roi_features)
 		else:
-			bboxes = F.slice_axis(rois, axis=2, begin=1, end=None)
-			classes = F.slice_axis(rois, axis=2, begin=0, end=1)
-		return bboxes, classes
+			# use RPN auxiliary head
+			bbox_pred = rpn_rois_pred
+			class_pred = rpn_rois_scores
+		return bbox_pred, class_pred
