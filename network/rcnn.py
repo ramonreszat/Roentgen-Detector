@@ -4,10 +4,19 @@ from mxnet.gluon import nn
 from mxnet import nd,symbol,gluon,init
 
 from network.resnet import RoentgenResnet
-from network.rpn import ProposalNetwork, ProposalLayer, ROIAlignmentLayer
+from network.rpn import ProposalNetwork, ROIAlignmentLayer
+from network.decoder import AnchorBoxDecoder
 
 
 class RoentgenFasterRCNN(gluon.nn.HybridBlock):
+	"""Gluon implementation of the Faster R-CNN two-stage detector.
+
+    Parameters
+    ----------
+    num_classes : output
+        Fast R-CNN classification task.
+
+    """
 	def __init__(self, num_classes=2, joint_training=True, Nt=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5]):
 		super(RoentgenFasterRCNN, self).__init__()
 		self.joint_training = joint_training
@@ -15,7 +24,6 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		self.resnet = RoentgenResnet(64, conv_arch=[(2, 64), (2, 128), (2, 256), (2, 512)])
 
 		self.rpn = ProposalNetwork(512, num_anchors=9, anchor_points=(32,32))
-		self.proposals = ProposalLayer(sizes, ratios, Nt=0.7)
 
 		if joint_training:
 			self.alignment = ROIAlignmentLayer((8,8), spatial_scale=0.03125)
@@ -31,7 +39,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		feature_map = self.resnet(X)
 
 		cls_scores, bbox_pred = self.rpn(feature_map)
-		rois = self.proposals(cls_scores, bbox_pred)
+		#TODO: create bbox rois with AnchorBoxDecoder
 
 		if self.joint_training:
 			regions = self.alignment(feature_map, rois)
