@@ -28,7 +28,7 @@ class Residual(gluon.nn.HybridBlock):
 			x = X
 		return self.relu2(y + x)
 
-def ResnetBlock(num_residuals, num_channels, first_block=False):
+def stack_resnet_block(num_residuals, num_channels, first_block=False):
 	out = nn.HybridSequential()
 	for i in range(num_residuals):
 		if i==0 and not first_block:
@@ -39,6 +39,14 @@ def ResnetBlock(num_residuals, num_channels, first_block=False):
 
 
 class RoentgenResnet(gluon.nn.HybridBlock):
+	"""Feature extraction using standard resnet architecture.
+
+    Parameters
+    ----------
+    conv_arch : number of residuals and channels
+        with 1x1conv at each of the first blocks and increasing feature channels.
+
+    """
 	def __init__(self,num_channels, conv_arch=[(2, 64), (2, 128), (2, 256), (2, 512)]):
 		super(RoentgenResnet, self).__init__()
 
@@ -51,9 +59,9 @@ class RoentgenResnet(gluon.nn.HybridBlock):
 
 		for i, (num_residuals, num_channels) in enumerate(conv_arch):
 			if i==0:
-				self.residuals.add(ResnetBlock(num_residuals, num_channels, first_block=True))
+				self.residuals.add(stack_resnet_block(num_residuals, num_channels, first_block=True))
 			else:
-				self.residuals.add(ResnetBlock(num_residuals, num_channels))
+				self.residuals.add(stack_resnet_block(num_residuals, num_channels))
 	
 	def hybrid_forward(self, F, X):
 		Y = self.relu0(self.bn0(self.conv0(X)))
