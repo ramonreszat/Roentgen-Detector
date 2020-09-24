@@ -19,8 +19,9 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         height of the anchor box is scaled by the given factor.
 
     """
-    def __init__(self, map_stride, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5]):
+    def __init__(self, map_stride, iou_threshold=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5]):
         super(AnchorBoxDecoder, self).__init__()
+        self.iou_threshold = iou_threshold
 
         archetypes = list(itertools.product(sizes,ratios))
         anchor_boxes = np.array([(size,size*ratio) for size, ratio in archetypes], dtype=np.float32)
@@ -36,18 +37,11 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         anchor_points = anchor_points.reshape(2,32,32)
 
         with self.name_scope():
-            self.anchor_points = self.params.get('anchor_points',
-                                                shape=anchor_points.shape,
-                                                init=mx.init.Constant(anchor_points),
-                                                differentiable=False)
-            
-            self.anchor_boxes = self.params.get('anchor_boxes',
-                                                shape=anchor_boxes.shape,
-                                                init=mx.init.Constant(anchor_boxes),
-                                                differentiable=False)
+            self.anchor_points = self.params.get_constant('anchor_points', anchor_points)
+            self.anchor_boxes = self.params.get_constant('anchor_boxes', anchor_boxes)
         
 
-    def hybrid_forward(self, b, anchor_points, anchor_boxes, labels=None):
+    def hybrid_forward(self, F, bbox_offsets, anchor_points, anchor_boxes, labels=None):
         #TODO: infer batch_size from input
         G = nd.broadcast_to(labels.reshape(self.batch_size,1,4,1,1),(self.batch_size,9,4,32,32))
         points = nd.broadcast_to(anchor_points.reshape(1,1,2,32,32), (self.batch_size,9,2,32,32))
@@ -58,4 +52,5 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         if autograd.is_training:
             return 
         else:
-            return A + b
+            # apply predictions to anchors
+            return A + bbox_offsets
