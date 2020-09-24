@@ -41,7 +41,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             self.anchor_points = self.params.get_constant('anchor_points', anchor_points)
             self.anchor_boxes = self.params.get_constant('anchor_boxes', anchor_boxes)
     
-    def box_iou(self,A,G):
+    def box_iou(self,F,A,G):
 
         # conversion to min/max rectangle span
         #     ymin = y - h/2
@@ -59,31 +59,31 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         Axmax = A[:,:,0,:,:] + A[:,:,2,:,:]/2
 
         # Ai
-        dx = nd.minimum(Gxmax,Axmax) - nd.maximum(Gxmin,Axmin)
-        dy = nd.minimum(Gymax,Aymax) - nd.maximum(Gymin,Aymin)
+        dx = F.minimum(Gxmax,Axmax) - F.maximum(Gxmin,Axmin)
+        dy = F.minimum(Gymax,Aymax) - F.maximum(Gymin,Aymin)
 
         #if dx or dy is negative no intersection else dx hadamard dy
-        Ai = nd.multiply(nd.relu(dx),nd.relu(dy))
+        Ai = F.multiply(F.relu(dx),F.relu(dy))
     
 
         # Au = s^2 + wh - Ai > 0
-        Au = nd.multiply(A[:,:,2,:,:],A[:,:,3,:,:]) + nd.multiply(G[:,:,2,:,:],G[:,:,3,:,:]) - Ai
+        Au = F.multiply(A[:,:,2,:,:],A[:,:,3,:,:]) + F.multiply(G[:,:,2,:,:],G[:,:,3,:,:]) - Ai
 
-        return nd.relu(nd.divide(Ai,Au))
+        return F.relu(F.divide(Ai,Au))
 
 
     def hybrid_forward(self, F, bbox_offsets, anchor_points, anchor_boxes, labels=None):
-        bbox_offsets = bbox_offsets.reshape(0,self.num_anchors,4,32,32)
+        bbox_offsets = F.reshape(bbox_offsets,(0,self.num_anchors,4,32,32))
         #TODO: infer batch_size from input F
-        points = nd.broadcast_to(anchor_points.reshape(1,1,2,32,32), (self.batch_size,self.num_anchors,2,32,32))
-        sizes = nd.broadcast_to(anchor_boxes.reshape(1,9,2,1,1),(self.batch_size,self.num_anchors,2,32,32))
-        A = nd.concat(points,sizes,dim=2)
+        points = F.broadcast_to(F.reshape(anchor_points,(1,1,2,32,32)), (self.batch_size,self.num_anchors,2,32,32))
+        sizes = F.broadcast_to(F.reshape(anchor_boxes,(1,9,2,1,1)), (self.batch_size,self.num_anchors,2,32,32))
+        A = F.concat(points,sizes,dim=2)
 
         #TODO: anchor points are in center format
         if autograd.is_training:
-            G = nd.broadcast_to(labels.reshape(self.batch_size,1,4,1,1),(self.batch_size,9,4,32,32))
+            G = F.broadcast_to(F.reshape(labels, self.batch_size,1,4,1,1), (self.batch_size,9,4,32,32))
 
-            ious = self.box_iou(A,G)
+            ious = self.box_iou(F,A,G)
 
             # fg/bg threshold
             p = ious > self.iou_threshold
@@ -91,8 +91,8 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             # max IOU if there is no overlap > threshold
             m = ious.max(axis=(1,2,3))
 
-            m = nd.where(m<=self.iou_threshold,m,-1*m)
-            m = nd.where(m==0,m-1,m)
+            m = F.where(m<=self.iou_threshold,m,-1*m)
+            m = F.where(m==0,m-1,m)
 
             #TODO: symbol operation
             for i in range(batch_size):
