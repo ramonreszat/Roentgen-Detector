@@ -74,14 +74,20 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
 
     def hybrid_forward(self, F, bbox_offsets, anchor_points, anchor_boxes, labels=None):
         bbox_offsets = F.reshape(bbox_offsets,(0,self.num_anchors,4,32,32))
-        #TODO: infer batch_size from input F
-        points = F.broadcast_to(F.reshape(anchor_points,(1,1,2,32,32)), (self.batch_size,self.num_anchors,2,32,32))
-        sizes = F.broadcast_to(F.reshape(anchor_boxes,(1,9,2,1,1)), (self.batch_size,self.num_anchors,2,32,32))
-        A = F.concat(points,sizes,dim=2)
+        # broadcast across all boxes 
+        points = F.broadcast_to(F.reshape(anchor_points,(1,1,2,32,32)), (1,self.num_anchors,2,32,32))
+        # broadcast over all points
+        sizes = F.broadcast_to(F.reshape(anchor_boxes,(1,9,2,1,1)), (1,self.num_anchors,2,32,32))
+        # broadcast to batch
+        anchors = F.concat(points,sizes,dim=2)
+        A = F.broadcast_like(anchors, bbox_offsets)
 
         #TODO: anchor points are in center format
         if autograd.is_training:
-            G = F.broadcast_to(F.reshape(labels, self.batch_size,1,4,1,1), (self.batch_size,9,4,32,32))
+            # broadcast to all sliding window positions
+            ground_truth = F.broadcast_to(F.reshape(labels,1,1,4,1,1), (1,9,4,32,32))
+            # broadcast to batch
+            G = F.broadcast_like(ground_truth, bbox_offsets)
 
             ious = self.box_iou(F,A,G)
 
@@ -94,7 +100,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             m = F.where(m<=self.iou_threshold,m,-1*m)
             m = F.where(m==0,m-1,m)
 
-            #TODO: symbol operation
+            #TODO: symbolic operation
             for i in range(batch_size):
                 p[i] = p[i] + (ious[i]==m[i])
 
