@@ -44,7 +44,7 @@ valid_loader = gluon.data.DataLoader(valid_data, 16, shuffle=False, num_workers=
 
 
 # Region Proposal Network (RPN) auxilliary head
-pneumothorax = RoentgenFasterRCNN()
+pneumothorax = RoentgenFasterRCNN(2, iou_threshold=0.7, iou_output=True, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=True)
 pneumothorax.hybridize()
 
 pos_weight = nd.array([cfg.beta],ctx=ctx)
@@ -129,6 +129,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
 
                     IOU = box_iou(A,G)
 
+                    #QUICK FIX: return this from anchor box decoder
                     # fg/bg threshold
                     p = IOU > cfg.iou_threshold
                         

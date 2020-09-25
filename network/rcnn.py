@@ -19,7 +19,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		for alternating and class agnostic training.
 
     """
-	def __init__(self, num_classes, iou_threshold=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False):
+	def __init__(self, num_classes, iou_threshold=0.7, iou_output=False, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False):
 		super(RoentgenFasterRCNN, self).__init__()
 		self.rpn_head = rpn_head
 
@@ -28,7 +28,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		# RPN head region proposal network 
 		self.rpn = ProposalNetwork(512, num_anchors=9, anchor_points=(32,32))
 		# anchor boxes of fixed size and ratio
-		self.anchor = AnchorBoxDecoder(32, iou_threshold=iou_threshold, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5])
+		self.anchor = AnchorBoxDecoder(32, iou_threshold=iou_threshold, iou_output=iou_output, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5])
 
 		if not rpn_head:
 			self.alignment = ROIAlignmentLayer((8,8), spatial_scale=0.03125)
