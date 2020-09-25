@@ -65,8 +65,6 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         #if dx or dy is negative no intersection else dx hadamard dy
         Ai = F.multiply(F.relu(dx),F.relu(dy))
     
-
-        # Au = s^2 + wh - Ai > 0
         Au = F.multiply(A[:,:,2,:,:],A[:,:,3,:,:]) + F.multiply(G[:,:,2,:,:],G[:,:,3,:,:]) - Ai
 
         return F.relu(F.divide(Ai,Au))
@@ -105,11 +103,11 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             attention = F.where(attention==0, attention-1, attention)
 
             # select maximum IOU if there is no overlap bigger than the threshold
-            attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, iou, attention], [])
+            attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, attention], [])
 
             # apply selection from anchor offsets
             gt_offsets = F.multiply(G-A, attention_mask)
-            bbox_offset = F.multiply(bbox_offsets, attention_mask)
+            bbox_offsets = F.multiply(bbox_offsets, attention_mask)
 
             return gt_offsets, bbox_offsets, attention_mask
         else:
