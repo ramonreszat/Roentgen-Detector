@@ -50,6 +50,7 @@ class ROIAlignmentLayer(gluon.nn.HybridBlock):
 		self.pooled_size = pooled_size
 		self.spatial_scale = spatial_scale
 	
+	# TODO: maybe the right rois format
 	def roi_alignment(self, data, _):
 		region = ROIAlign(data=data[0], rois=data[1],
 							pooled_size=self.pooled_size, spatial_scale=self.spatial_scale)

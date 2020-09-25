@@ -19,7 +19,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		for alternating and class agnostic training.
 
     """
-	def __init__(self, num_classes=2, iou_threshold=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False):
+	def __init__(self, num_classes, iou_threshold=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False):
 		super(RoentgenFasterRCNN, self).__init__()
 		self.rpn_head = rpn_head
 
@@ -42,23 +42,27 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 			self.rcnn_detector = nn.Dense(num_classes, flatten=False)
 
 
-	def hybrid_forward(self, F, X):
+	def hybrid_forward(self, F, X, labels=None):
+		# extract features
 		feature_map = self.resnet(X)
 
 		# ROI classification and regression
 		rpn_cls_scores, rpn_bbox_pred = self.rpn(feature_map)
-		# decode bounding boxes from confidence scores and offsets
-		rpn_rois_pred, rpn_rois_scores = self.anchor(rpn_bbox_pred)
 
-		if not self.rpn_head:
+		if autograd.is_training and self.rpn_head:
+			# decode offsets with IOU filtering
+			gt_offsets, bbox_offsets, attention_masks = self.anchor(rpn_bbox_pred, labels=labels)
+			
+			return rpn_cls_scores, bbox_offsets, gt_offsets, attention_masks
+		else:
+			# decode ROIs from offset prediction
+			rpn_rois_pred = self.anchor(rpn_bbox_pred)
+
 			regions = self.alignment(feature_map, rpn_rois_pred)
 			# 5 proposals post nms -> flatten if only one is allowed
 			roi_features = self.fast_rcnn(F.reshape(regions, shape=(0,5,-1)))
 
-			bbox_pred = rpn_rois_pred + self.rcnn_bbox_offset(roi_features)
-			class_pred = self.rcnn_detector(roi_features)
-		else:
-			# use RPN auxiliary head
-			bbox_pred = rpn_rois_pred
-			class_pred = rpn_rois_scores
-		return bbox_pred, class_pred
+			rcnn_bbox_pred = rpn_rois_pred + self.rcnn_bbox_offset(roi_features)
+			rcnn_class_pred = self.rcnn_detector(roi_features)
+
+			return rcnn_bbox_pred, rcnn_class_pred
