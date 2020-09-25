@@ -1,3 +1,4 @@
+import json
 import argparse
 
 from trainer.iou import box_iou
@@ -18,6 +19,7 @@ parser = argparse.ArgumentParser()
 # configure training parameter
 parser.add_argument('--epochs', '-n', type=int)
 parser.add_argument('--learning_rate', '-lr', type=float, default=1E-5)
+parser.add_argument('--weight_decay', '-wd', type=float, default=1E-6)
 parser.add_argument('--beta', '-beta', type=float, default=1.7, help='Value > 1 increases recall for the RPN')
 parser.add_argument('--gamma', '-gamma', type=float, default=1.5)
 parser.add_argument('--rho', '-rho', type=float, default=1)
@@ -28,6 +30,9 @@ parser.add_argument('--nms_threshold', '-nms', type=float, default=0.5)
 parser.add_argument('--iou_threshold', type=float, default=0.7, help='Threshold for an anchor box to be picked as forground')
 
 cfg = parser.parse_args()
+
+with open('roentgen-training-params.json', 'w') as config:
+    json.dump(vars(cfg), config)
 
 
 # parse and load the SIIM-ACR dataset
@@ -52,7 +57,7 @@ binary_cross_entropy = gluon.loss.SigmoidBinaryCrossEntropyLoss(weight=2E+2)
 # Kaiming initialization from uniform [-c,c] c = sqrt(2/Nin) 
 pneumothorax.collect_params().initialize(init.Xavier(factor_type='in', magnitude=0.44444), ctx=ctx)
 
-trainer = gluon.Trainer(pneumothorax.collect_params(), 'adam', {'learning_rate': cfg.learning_rate})
+trainer = gluon.Trainer(pneumothorax.collect_params(), 'adam', {'learning_rate': cfg.learning_rate, 'wd': cfg.weight_decay})
 
 with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
     for epoch in range(cfg.epochs):
