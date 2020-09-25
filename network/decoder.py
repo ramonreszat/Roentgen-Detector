@@ -7,7 +7,7 @@ from mxnet import autograd,gluon,nd
 class AnchorBoxDecoder(gluon.nn.HybridBlock):
     """Decode bounding boxes training target from ProposalNetwork offsets.
 
-    Returned bounding boxes are using corner type: `x_{min}, y_{min}, x_{max}, y_{max}`.
+    Returned bounding boxes are in center format: (x, y, w, h).
 
     Parameters
     ----------
@@ -114,5 +114,4 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             return gt_offsets, bbox_offsets, attention_mask
         else:
             # apply predictions to anchors
-            #TODO: anchor points are in center format
             return A + bbox_offsets
