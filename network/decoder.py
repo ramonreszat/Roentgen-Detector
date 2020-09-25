@@ -71,8 +71,8 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
 
         return F.relu(F.divide(Ai,Au))
     
-    def and_equal(self, data, _):
-        return data[0] + (data[1]==data[2])
+    def and_equals(self, data, _):
+        return data[0] + (data[1]==data[2]), _
 
 
     def hybrid_forward(self, F, bbox_offsets, anchor_points, anchor_boxes, labels=None):
@@ -94,15 +94,17 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             # intersection over union
             ious = self.box_iou(F,A,G)
 
-            # fg/bg threshold
+            # select anchor boxes as fg/bg
             mask = ious > self.iou_threshold
 
-            # max IOU if there is no overlap > threshold
+            # maximum IOU anchor box along all sliding window locations
             attention = ious.max(axis=(1,2,3))
-
+            # ignore maximum smaller than the threshold
             attention = F.where(attention<=self.iou_threshold,attention,-1*attention)
+            # ignore zero maximum
             attention = F.where(attention==0,attention-1,attention)
 
+            # select maximum IOU if there is no overlap bigger than the threshold
             mask, _ = F.contrib.foreach(self.and_equals, [mask, iou, attention], [])
 
         else:
