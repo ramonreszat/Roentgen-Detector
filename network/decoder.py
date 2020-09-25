@@ -43,7 +43,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
     
     def box_iou(self,F,A,G):
 
-        # conversion to min/max rectangle span
+        # conversion to corner format:
         #     ymin = y - h/2
         #     xmin = x - w/2
         #     ymax = y + h/2
