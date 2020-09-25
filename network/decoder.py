@@ -108,8 +108,8 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, iou, attention], [])
 
             # apply selection from anchor offsets
-            gt_offsets = F.multiply(G-A, attention_mask)*1024
-            bbox_offset = F.multiply(bbox_offsets, attention_mask)*1024
+            gt_offsets = F.multiply(G-A, attention_mask)
+            bbox_offset = F.multiply(bbox_offsets, attention_mask)
 
             return gt_offsets, bbox_offsets, attention_mask
         else:
