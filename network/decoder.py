@@ -70,6 +70,9 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         Au = F.multiply(A[:,:,2,:,:],A[:,:,3,:,:]) + F.multiply(G[:,:,2,:,:],G[:,:,3,:,:]) - Ai
 
         return F.relu(F.divide(Ai,Au))
+    
+    def and_equal(self, data, _):
+        return data[0] + (data[1]==data[2])
 
 
     def hybrid_forward(self, F, bbox_offsets, anchor_points, anchor_boxes, labels=None):
@@ -82,28 +85,27 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         anchors = F.concat(points,sizes,dim=2)
         A = F.broadcast_like(anchors, bbox_offsets)
 
-        #TODO: anchor points are in center format
         if autograd.is_training:
             # broadcast to all sliding window positions
             ground_truth = F.broadcast_to(F.reshape(labels,1,1,4,1,1), (1,9,4,32,32))
             # broadcast to batch
             G = F.broadcast_like(ground_truth, bbox_offsets)
 
+            # intersection over union
             ious = self.box_iou(F,A,G)
 
             # fg/bg threshold
-            p = ious > self.iou_threshold
+            mask = ious > self.iou_threshold
 
             # max IOU if there is no overlap > threshold
-            m = ious.max(axis=(1,2,3))
+            attention = ious.max(axis=(1,2,3))
 
-            m = F.where(m<=self.iou_threshold,m,-1*m)
-            m = F.where(m==0,m-1,m)
+            attention = F.where(attention<=self.iou_threshold,attention,-1*attention)
+            attention = F.where(attention==0,attention-1,attention)
 
-            #TODO: symbolic operation
-            for i in range(batch_size):
-                p[i] = p[i] + (ious[i]==m[i])
+            mask, _ = F.contrib.foreach(self.and_equals, [mask, iou, attention], [])
 
         else:
             # apply predictions to anchors
+            #TODO: anchor points are in center format
             return A + bbox_offsets
