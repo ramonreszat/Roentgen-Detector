@@ -36,10 +36,10 @@ with open('roentgen-training-params.json', 'w') as config:
 
 
 # parse and load the SIIM-ACR dataset
-train_data = DICOMFolderDataset('siim-acr-data/train-pneumothorax/**/**/*.dcm', 'siim-acr-data/train.csv')
+train_data = DICOMFolderDataset('siim-acr-data/train-pneumothorax/**/**/*.dcm', 'siim-acr-data/train-sample.csv')
 train_loader = gluon.data.DataLoader(train_data, 16, shuffle=True, num_workers=4)
 
-valid_data = DICOMFolderDataset('siim-acr-data/dev-pneumothorax/**/**/*.dcm', 'siim-acr-data/train-dev.csv')
+valid_data = DICOMFolderDataset('siim-acr-data/dev-pneumothorax/**/**/*.dcm', 'siim-acr-data/dev-sample.csv')
 valid_loader = gluon.data.DataLoader(valid_data, 16, shuffle=False, num_workers=4)
 
 
