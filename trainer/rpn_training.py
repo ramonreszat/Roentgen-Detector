@@ -1,7 +1,6 @@
 import json
 import argparse
 
-from trainer.iou import box_iou
 from mxnet import nd,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
