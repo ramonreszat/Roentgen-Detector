@@ -28,6 +28,7 @@ parser.add_argument('--Ncls', '-Ncls', type=int, default=16)
 parser.add_argument('--Nreg', '-Nreg', type=int, default=1024)
 parser.add_argument('--nms_threshold', '-nms', type=float, default=0.5)
 parser.add_argument('--iou_threshold', type=float, default=0.7, help='Threshold for an anchor box to be picked as forground')
+parser.add_argument('--label_epsilon', type=float, default=1E-8)
 
 cfg = parser.parse_args()
 
@@ -81,7 +82,8 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     # proposal generation
                     rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X)
 
-                    #TODO: label smoothing
+                    # label smoothing
+                    attention_masks = (1-cfg.label_epsilon) * attention_masks
 
                     # multi-task loss
                     rpn_cls_loss = binary_cross_entropy(rpn_cls_scores, attention_masks, pos_weight)
