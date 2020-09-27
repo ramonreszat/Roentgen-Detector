@@ -76,6 +76,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
 
 
     def hybrid_forward(self, F, bbox_offsets, labels, anchor_points, anchor_boxes):
+        # split anchor and offset predictions
         bbox_offsets = F.reshape(bbox_offsets,(0,self.num_anchors,4,32,32))
         # broadcast across all boxes 
         points = F.broadcast_to(F.reshape(anchor_points,(1,1,2,32,32)), (1,self.num_anchors,2,32,32))

@@ -52,8 +52,7 @@ pos_weight = nd.array([cfg.beta],ctx=ctx)
 box_weight = nd.array([cfg.gamma,cfg.gamma,cfg.gamma,cfg.gamma],ctx=ctx)
 
 rpn_huber_loss = gluon.loss.HuberLoss(rho=cfg.rho, weight=5E+1)
-# TODO: change to softmax output
-binary_cross_entropy = gluon.loss.SigmoidBinaryCrossEntropyLoss(weight=2E+2)
+rpn_cross_entropy = gluon.loss.SoftmaxCrossEntropyLoss(axis=2, weight=2E+2)
 
 # Kaiming initialization from uniform [-c,c] c = sqrt(2/Nin) 
 pneumothorax.collect_params().initialize(init.Xavier(factor_type='in', magnitude=0.44444), ctx=ctx)
@@ -82,11 +81,8 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     # proposal generation
                     rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X, labels)
 
-                    # label smoothing
-                    attention_masks = (1-cfg.label_epsilon) * attention_masks
-
                     # multi-task loss
-                    rpn_cls_loss = binary_cross_entropy(rpn_cls_scores, attention_masks, pos_weight)
+                    rpn_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_masks, pos_weight)
                     rpn_reg_loss = rpn_huber_loss(rpn_bbox_offsets, rpn_gt_offsets, box_weight)
 
                     rpn_pred_loss = rpn_cls_loss/cfg.Ncls + cfg.balance*rpn_reg_loss/cfg.Nreg

@@ -52,6 +52,8 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		if autograd.is_training and self.rpn_head:
 			# decode offsets with IOU filtering
 			gt_offsets, bbox_offsets, attention_masks = self.anchor(rpn_bbox_pred, labels)
+			# split cls scores needs to be rearranged for more classes
+			rpn_cls_scores = F.reshape(rpn_cls_scores,(0,9,2,32,32))
 			
 			return rpn_cls_scores, bbox_offsets, gt_offsets, attention_masks
 		else:
