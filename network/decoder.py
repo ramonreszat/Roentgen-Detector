@@ -64,11 +64,11 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         dy = F.minimum(Gymax,Aymax) - F.maximum(Gymin,Aymin)
 
         #if dx or dy is negative no intersection else dx hadamard dy
-        Ai = F.multiply(F.relu(dx),F.relu(dy))
+        Ai = F.broadcast_mul(F.relu(dx),F.relu(dy))
     
-        Au = F.multiply(A[:,:,2,:,:],A[:,:,3,:,:]) + F.multiply(G[:,:,2,:,:],G[:,:,3,:,:]) - Ai
+        Au = F.broadcast_mul(F.slice_axis(A, axis=2, begin=2, end=2),F.slice_axis(A, axis=2, begin=3, end=3)) + F.broadcast_mul(F.slice_axis(G, axis=2, begin=2, end=2),F.slice_axis(G, axis=2, begin=3, end=3)) - Ai
 
-        return F.relu(F.divide(Ai,Au))
+        return F.relu(F.broadcast_div(Ai,Au))
     
     def and_equals(self, data, _):
         return data[0] + (data[1]==data[2]), _
@@ -107,8 +107,8 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, attention], [])
 
             # apply selection from anchor offsets
-            gt_offsets = F.multiply(G-A, attention_mask)
-            bbox_offsets = F.multiply(bbox_offsets, attention_mask)
+            gt_offsets = F.broadcast_mul(G-A, attention_mask)
+            bbox_offsets = F.broadcast_mul(bbox_offsets, attention_mask)
 
             return gt_offsets, bbox_offsets, attention_mask
         else:
