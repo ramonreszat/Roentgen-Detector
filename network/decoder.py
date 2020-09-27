@@ -74,7 +74,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         return data[0] + (data[1]==data[2]), _
 
 
-    def hybrid_forward(self, F, bbox_offsets, anchor_points, anchor_boxes, labels=None):
+    def hybrid_forward(self, F, bbox_offsets, labels, anchor_points, anchor_boxes):
         bbox_offsets = F.reshape(bbox_offsets,(0,self.num_anchors,4,32,32))
         # broadcast across all boxes 
         points = F.broadcast_to(F.reshape(anchor_points,(1,1,2,32,32)), (1,self.num_anchors,2,32,32))
@@ -86,7 +86,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
 
         if autograd.is_training:
             # broadcast to all sliding window positions
-            ground_truth = F.broadcast_to(F.reshape(labels,1,1,4,1,1), (1,9,4,32,32))
+            ground_truth = F.broadcast_to(F.reshape(labels,(1,1,4,1,1)), (1,9,4,32,32))
             # broadcast to batch
             G = F.broadcast_like(ground_truth, bbox_offsets)
 
