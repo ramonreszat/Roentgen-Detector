@@ -49,15 +49,15 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         #     xmin = x - w/2
         #     ymax = y + h/2
         #     xmax = x + w/2
-        Gymin = G[:,:,1,:,:] - G[:,:,3,:,:]/2
-        Gxmin = G[:,:,0,:,:] - G[:,:,2,:,:]/2
-        Gymax = G[:,:,1,:,:] + G[:,:,3,:,:]/2
-        Gxmax = G[:,:,0,:,:] + G[:,:,2,:,:]/2
+        Gymin = F.slice_axis(G, axis=2, begin=1, end=1) - F.slice_axis(G, axis=2, begin=3, end=3)/2
+        Gxmin = F.slice_axis(G, axis=2, begin=0, end=0) - F.slice_axis(G, axis=2, begin=2, end=2)/2
+        Gymax = F.slice_axis(G, axis=2, begin=1, end=1) + F.slice_axis(G, axis=2, begin=3, end=3)/2
+        Gxmax = F.slice_axis(G, axis=2, begin=0, end=0) + F.slice_axis(G, axis=2, begin=2, end=2)/2
 
-        Aymin = A[:,:,1,:,:] - A[:,:,3,:,:]/2
-        Axmin = A[:,:,0,:,:] - A[:,:,2,:,:]/2
-        Aymax = A[:,:,1,:,:] + A[:,:,3,:,:]/2
-        Axmax = A[:,:,0,:,:] + A[:,:,2,:,:]/2
+        Aymin = F.slice_axis(A, axis=2, begin=1, end=1) - F.slice_axis(A, axis=2, begin=3, end=3)/2
+        Axmin = F.slice_axis(A, axis=2, begin=0, end=0) - F.slice_axis(A, axis=2, begin=2, end=2)/2
+        Aymax = F.slice_axis(A, axis=2, begin=1, end=1) + F.slice_axis(A, axis=2, begin=3, end=3)/2
+        Axmax = F.slice_axis(A, axis=2, begin=0, end=0) + F.slice_axis(A, axis=2, begin=2, end=2)/2
 
         # Ai
         dx = F.minimum(Gxmax,Axmax) - F.maximum(Gxmin,Axmin)
