@@ -1,7 +1,7 @@
 import json
 import argparse
 
-from mxnet import nd,gpu,init,gluon,autograd
+from mxnet import nd,cpu,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
 from network.rcnn import RoentgenFasterRCNN
@@ -11,12 +11,13 @@ from tqdm import tqdm
 from mxboard import SummaryWriter
 
 # devices
-ctx = gpu(0)
+ctx = cpu(0)
 
 parser = argparse.ArgumentParser()
 
 # configure training parameter
-parser.add_argument('--epochs', '-n', type=int)
+parser.add_argument('--epochs', '-epochs', type=int)
+parser.add_argument('--batch_size', '-batch', type=int, default=16)
 parser.add_argument('--learning_rate', '-lr', type=float, default=1E-5)
 parser.add_argument('--weight_decay', '-wd', type=float, default=1E-6)
 parser.add_argument('--beta', '-beta', type=float, default=1.7, help='Value > 1 increases recall for the RPN')
@@ -37,10 +38,10 @@ with open('roentgen-training-params.json', 'w') as config:
 
 # parse and load the SIIM-ACR dataset
 train_data = DICOMFolderDataset('siim-acr-data/train-pneumothorax/**/**/*.dcm', 'siim-acr-data/train-sample.csv')
-train_loader = gluon.data.DataLoader(train_data, 16, shuffle=True, num_workers=4)
+train_loader = gluon.data.DataLoader(train_data, cfg.batch_size, shuffle=True, num_workers=4)
 
 valid_data = DICOMFolderDataset('siim-acr-data/dev-pneumothorax/**/**/*.dcm', 'siim-acr-data/dev-sample.csv')
-valid_loader = gluon.data.DataLoader(valid_data, 16, shuffle=False, num_workers=4)
+valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, num_workers=4)
 
 
 # Region Proposal Network (RPN) auxilliary head
@@ -61,7 +62,7 @@ trainer = gluon.Trainer(pneumothorax.collect_params(), 'adam', {'learning_rate':
 
 with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
     for epoch in range(cfg.epochs):
-        with tqdm(total=int(len(train_data)/16), desc='Training Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
+        with tqdm(total=int(len(train_data)/cfg.batch_size), desc='Training Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
             cumulated_loss = 0.0
             cumulated_bce = 0.0
             cumulated_huber = 0.0
@@ -79,7 +80,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
 
                 with autograd.record():
                     # proposal generation
-                    rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X)
+                    rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X, labels)
 
                     # label smoothing
                     attention_masks = (1-cfg.label_epsilon) * attention_masks
