@@ -41,8 +41,8 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 			self.rcnn_bbox_offset = nn.Dense(4, flatten=False)
 			self.rcnn_detector = nn.Dense(num_classes, flatten=False)
 
-
-	def hybrid_forward(self, F, X, labels=None):
+	#TODO: default arguments in hybrid blocks
+	def hybrid_forward(self, F, X, labels):
 		# extract features
 		feature_map = self.resnet(X)
 
@@ -51,7 +51,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 
 		if autograd.is_training and self.rpn_head:
 			# decode offsets with IOU filtering
-			gt_offsets, bbox_offsets, attention_masks = self.anchor(rpn_bbox_pred, labels=labels)
+			gt_offsets, bbox_offsets, attention_masks = self.anchor(rpn_bbox_pred, labels)
 			
 			return rpn_cls_scores, bbox_offsets, gt_offsets, attention_masks
 		else:

@@ -49,15 +49,15 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         #     xmin = x - w/2
         #     ymax = y + h/2
         #     xmax = x + w/2
-        Gymin = F.slice_axis(G, axis=2, begin=1, end=1) - F.slice_axis(G, axis=2, begin=3, end=3)/2
-        Gxmin = F.slice_axis(G, axis=2, begin=0, end=0) - F.slice_axis(G, axis=2, begin=2, end=2)/2
-        Gymax = F.slice_axis(G, axis=2, begin=1, end=1) + F.slice_axis(G, axis=2, begin=3, end=3)/2
-        Gxmax = F.slice_axis(G, axis=2, begin=0, end=0) + F.slice_axis(G, axis=2, begin=2, end=2)/2
+        Gymin = F.slice_axis(G, axis=2, begin=1, end=2) - F.slice_axis(G, axis=2, begin=3, end=4)/2
+        Gxmin = F.slice_axis(G, axis=2, begin=0, end=1) - F.slice_axis(G, axis=2, begin=2, end=3)/2
+        Gymax = F.slice_axis(G, axis=2, begin=1, end=2) + F.slice_axis(G, axis=2, begin=3, end=4)/2
+        Gxmax = F.slice_axis(G, axis=2, begin=0, end=1) + F.slice_axis(G, axis=2, begin=2, end=3)/2
 
-        Aymin = F.slice_axis(A, axis=2, begin=1, end=1) - F.slice_axis(A, axis=2, begin=3, end=3)/2
-        Axmin = F.slice_axis(A, axis=2, begin=0, end=0) - F.slice_axis(A, axis=2, begin=2, end=2)/2
-        Aymax = F.slice_axis(A, axis=2, begin=1, end=1) + F.slice_axis(A, axis=2, begin=3, end=3)/2
-        Axmax = F.slice_axis(A, axis=2, begin=0, end=0) + F.slice_axis(A, axis=2, begin=2, end=2)/2
+        Aymin = F.slice_axis(A, axis=2, begin=1, end=2) - F.slice_axis(A, axis=2, begin=3, end=4)/2
+        Axmin = F.slice_axis(A, axis=2, begin=0, end=1) - F.slice_axis(A, axis=2, begin=2, end=3)/2
+        Aymax = F.slice_axis(A, axis=2, begin=1, end=2) + F.slice_axis(A, axis=2, begin=3, end=4)/2
+        Axmax = F.slice_axis(A, axis=2, begin=0, end=1) + F.slice_axis(A, axis=2, begin=2, end=3)/2
 
         # Ai
         dx = F.minimum(Gxmax,Axmax) - F.maximum(Gxmin,Axmin)
@@ -66,12 +66,13 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         #if dx or dy is negative no intersection else dx hadamard dy
         Ai = F.broadcast_mul(F.relu(dx),F.relu(dy))
     
-        Au = F.broadcast_mul(F.slice_axis(A, axis=2, begin=2, end=2),F.slice_axis(A, axis=2, begin=3, end=3)) + F.broadcast_mul(F.slice_axis(G, axis=2, begin=2, end=2),F.slice_axis(G, axis=2, begin=3, end=3)) - Ai
+        Au = F.broadcast_mul(F.slice_axis(A, axis=2, begin=2, end=3),F.slice_axis(A, axis=2, begin=3, end=4)) + F.broadcast_mul(F.slice_axis(G, axis=2, begin=2, end=3),F.slice_axis(G, axis=2, begin=3, end=4)) - Ai
 
         return F.relu(F.broadcast_div(Ai,Au))
     
     def and_equals(self, data, _):
-        return data[0] + (data[1]==data[2]), _
+        # for non-symbolic context this can be a for loop
+        return data[0] + mx.sym.broadcast_equal(data[1], data[2]), _
 
 
     def hybrid_forward(self, F, bbox_offsets, labels, anchor_points, anchor_boxes):
@@ -104,7 +105,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             attention = F.where(attention==0, attention-1, attention)
 
             # select maximum IOU if there is no overlap bigger than the threshold
-            attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, attention], [])
+            attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, F.reshape(attention,(0,1))], [])
 
             # apply selection from anchor offsets
             gt_offsets = F.broadcast_mul(G-A, attention_mask)
