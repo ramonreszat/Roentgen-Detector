@@ -1,7 +1,7 @@
 import json
 import argparse
 
-from mxnet import nd,cpu,gpu,init,gluon,autograd
+from mxnet import nd,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
 from network.rcnn import RoentgenFasterRCNN
@@ -11,7 +11,7 @@ from tqdm import tqdm
 from mxboard import SummaryWriter
 
 # devices
-ctx = cpu(0)
+ctx = gpu(0)
 
 parser = argparse.ArgumentParser()
 
@@ -38,10 +38,10 @@ with open('roentgen-training-params.json', 'w') as config:
 
 # parse and load the SIIM-ACR dataset
 train_data = DICOMFolderDataset('siim-acr-data/train-pneumothorax/**/**/*.dcm', 'siim-acr-data/train-sample.csv')
-train_loader = gluon.data.DataLoader(train_data, cfg.batch_size, shuffle=True, num_workers=4)
+train_loader = gluon.data.DataLoader(train_data, cfg.batch_size, shuffle=True, num_workers=16)
 
 valid_data = DICOMFolderDataset('siim-acr-data/dev-pneumothorax/**/**/*.dcm', 'siim-acr-data/dev-sample.csv')
-valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, num_workers=4)
+valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, num_workers=16)
 
 
 # Region Proposal Network (RPN) auxilliary head
