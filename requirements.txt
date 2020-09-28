@@ -1,4 +1,4 @@
-mxnet-cu101mkl
+mxnet-cu102mkl
 mxboard
 pydicom
 boto3
