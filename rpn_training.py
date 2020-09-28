@@ -38,10 +38,10 @@ with open('roentgen-training-params.json', 'w') as config:
 
 # parse and load the SIIM-ACR dataset
 train_data = DICOMFolderDataset('siim-acr-data/train-pneumothorax/**/**/*.dcm', 'siim-acr-data/train-sample.csv')
-train_loader = gluon.data.DataLoader(train_data, cfg.batch_size, shuffle=True, num_workers=16)
+train_loader = gluon.data.DataLoader(train_data, cfg.batch_size, shuffle=True, num_workers=4)
 
 valid_data = DICOMFolderDataset('siim-acr-data/dev-pneumothorax/**/**/*.dcm', 'siim-acr-data/dev-sample.csv')
-valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, num_workers=16)
+valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, num_workers=4)
 
 
 # Region Proposal Network (RPN) auxilliary head
@@ -102,7 +102,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
 
 
             nd.waitall()
-
+            """
             with tqdm(total=int(len(valid_data)/16), desc='Validate Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
                 tp = 0
                 fp = 0
@@ -173,3 +173,4 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 log.add_scalar(tag='rpn_mae', value=(cumulated_error/n if n>0 else 0), global_step=epoch)
 
             pneumothorax.export("roentgen-region-proposal", epoch=epoch)
+            """
