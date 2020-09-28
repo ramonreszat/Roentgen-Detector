@@ -28,7 +28,6 @@ parser.add_argument('--Ncls', '-Ncls', type=int, default=16)
 parser.add_argument('--Nreg', '-Nreg', type=int, default=1024)
 parser.add_argument('--nms_threshold', '-nms', type=float, default=0.5)
 parser.add_argument('--iou_threshold', type=float, default=0.7, help='Threshold for an anchor box to be picked as forground')
-parser.add_argument('--label_epsilon', type=float, default=1E-8)
 
 cfg = parser.parse_args()
 
