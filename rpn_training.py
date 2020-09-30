@@ -129,13 +129,13 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     labels = labels.as_in_context(ctx)
 
                     batch_size = data.shape[0]
-
                     X = data.reshape((batch_size, 1, 1024, 1024))
-                    G = nd.broadcast_to(labels.reshape(batch_size,1,4,1,1),(batch_size,9,4,32,32))
-
+                    
+                    # feed forward to get evaluation tensors
                     rpn_bbox_pred, rpn_bbox_ious = pneumothorax(X, labels)
+                    rpn_bbox_rois = nd.broadcast_to(labels.reshape(batch_size,1,4,1,1),(batch_size,9,4,32,32))
 
-                    #
+                    # count valid classifications
                     valid = rpn_bbox_ious > cfg.iou_threshold
 
                     nd.waitall()
@@ -147,8 +147,8 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     fn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, valid).sum().asscalar()
 
                     
-                    Y = nd.multiply(valid,G)
-                    Y_hat = nd.multiply(valid,rpn_bbox_pred)
+                    Y = nd.multiply(valid, rpn_bbox_rois)
+                    Y_hat = nd.multiply(valid, rpn_bbox_pred)
 
                     # valid normalized mean squared error for bounding box regression
                     cumulated_error += nd.square(Y - Y_hat).sum().asscalar()
