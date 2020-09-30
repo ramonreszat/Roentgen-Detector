@@ -121,10 +121,12 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             # broadcast to batch
             G = F.broadcast_like(ground_truth, bbox_offsets)
 
-            # intersection over union
-            rpn_bbox_ious = self.box_iou(F,A,G)
+            rpn_bbox_pred = A + bbox_offsets
 
-            return A + bbox_offsets, rpn_bbox_ious
+            # intersection over union
+            rpn_bbox_ious = self.box_iou(F,rpn_bbox_pred,G)
+
+            return rpn_bbox_pred, rpn_bbox_ious
         
         # inference
         else:
