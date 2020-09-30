@@ -75,25 +75,25 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         return data[0] + mx.sym.broadcast_equal(data[1], data[2]), _
 
 
-    def hybrid_forward(self, F, bbox_offsets, labels, anchor_points, anchor_boxes):
+    def hybrid_forward(self, F, rpn_bbox_offsets, labels, anchor_points, anchor_boxes):
         # split anchor and offset predictions
-        bbox_offsets = F.reshape(bbox_offsets,(0,self.num_anchors,4,32,32))
+        rpn_bbox_offsets = F.reshape(rpn_bbox_offsets,(0,self.num_anchors,4,32,32))
         # broadcast across all boxes 
         points = F.broadcast_to(F.reshape(anchor_points,(1,1,2,32,32)), (1,self.num_anchors,2,32,32))
         # broadcast over all points
         sizes = F.broadcast_to(F.reshape(anchor_boxes,(1,9,2,1,1)), (1,self.num_anchors,2,32,32))
         # broadcast to batch
         anchors = F.concat(points,sizes,dim=2)
-        A = F.broadcast_like(anchors, bbox_offsets)
+        rpn_bbox_anchors = F.broadcast_like(anchors, rpn_bbox_offsets)
 
         if autograd.is_training:
             # broadcast to all sliding window positions
             ground_truth = F.broadcast_to(F.reshape(labels,(1,1,4,1,1)), (1,9,4,32,32))
             # broadcast to batch
-            G = F.broadcast_like(ground_truth, bbox_offsets)
+            rpn_bbox_rois = F.broadcast_like(ground_truth, rpn_bbox_offsets)
 
             # intersection over union
-            ious = self.box_iou(F,A,G)
+            ious = self.box_iou(F,rpn_bbox_anchors, rpn_bbox_rois)
 
             # select anchor boxes as fg/bg
             mask = ious > self.iou_threshold
@@ -109,26 +109,26 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, F.reshape(attention,(0,1))], [])
 
             # apply selection from anchor offsets
-            gt_offsets = F.broadcast_mul(G-A, attention_mask)
-            bbox_offsets = F.broadcast_mul(bbox_offsets, attention_mask)
+            gt_offsets = F.broadcast_mul(rpn_bbox_rois - rpn_bbox_anchors, attention_mask)
+            rpn_bbox_offsets = F.broadcast_mul(rpn_bbox_offsets, attention_mask)
 
-            return gt_offsets, bbox_offsets, attention_mask
+            return gt_offsets, rpn_bbox_offsets, attention_mask
 
         # validation mode
         elif self.iou_output:
             # broadcast to all sliding window positions
             ground_truth = F.broadcast_to(F.reshape(labels,(1,1,4,1,1)), (1,9,4,32,32))
             # broadcast to batch
-            G = F.broadcast_like(ground_truth, bbox_offsets)
+            rpn_bbox_rois = F.broadcast_like(ground_truth, rpn_bbox_offsets)
 
-            rpn_bbox_pred = A + bbox_offsets
+            rpn_bbox_pred = rpn_bbox_anchors + rpn_bbox_offsets
 
             # intersection over union
-            rpn_bbox_ious = self.box_iou(F,rpn_bbox_pred,G)
+            rpn_bbox_ious = self.box_iou(F,rpn_bbox_pred, rpn_bbox_rois)
 
             return rpn_bbox_pred, rpn_bbox_ious
         
         # inference
         else:
             # apply predictions to anchors
-            return A + bbox_offsets
+            return rpn_bbox_anchors + rpn_bbox_offsets
