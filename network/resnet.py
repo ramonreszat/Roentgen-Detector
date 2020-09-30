@@ -55,7 +55,7 @@ class RoentgenResnet(gluon.nn.HybridBlock):
 		self.relu0 = nn.Activation('relu')
 		self.pool0 = nn.MaxPool2D(pool_size=3, strides=2, padding=1)
 
-		self.residuals = nn.HybridSequential(prefix='resnet_18')
+		self.residuals = nn.HybridSequential()
 
 		for i, (num_residuals, num_channels) in enumerate(conv_arch):
 			if i==0:
