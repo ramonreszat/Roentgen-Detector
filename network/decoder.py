@@ -113,6 +113,20 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             bbox_offsets = F.broadcast_mul(bbox_offsets, attention_mask)
 
             return gt_offsets, bbox_offsets, attention_mask
+
+        # validation mode
+        elif self.iou_output:
+            # broadcast to all sliding window positions
+            ground_truth = F.broadcast_to(F.reshape(labels,(1,1,4,1,1)), (1,9,4,32,32))
+            # broadcast to batch
+            G = F.broadcast_like(ground_truth, bbox_offsets)
+
+            # intersection over union
+            rpn_bbox_ious = self.box_iou(F,A,G)
+
+            return A + bbox_offsets, rpn_bbox_ious
+        
+        # inference
         else:
             # apply predictions to anchors
             return A + bbox_offsets
