@@ -14,17 +14,17 @@ args = parser.parse_args()
 
 # place the login information for accessing the S3 bucket
 s3r = boto3.resource('s3', aws_access_key_id=args.aws_id, aws_secret_access_key=args.access_key)
-bucket = s3r.Bucket('pneumothorax-siim-acr-scans')
+bucket = s3r.Bucket('siim-acr-pneumothorax')
 
 os.mkdir('siim-acr-data')
 
-# fetch the eyeball dataset
-bucket.download_file('train-dev.csv', 'siim-acr-data/train-dev.csv')
-bucket.download_file('learn-pneumonia/pneumothorax-devset.zip', 'siim-acr-data/pneumothorax-devset.zip')
+# fetch the development set
+bucket.download_file('dev-sample.csv', 'siim-acr-data/dev-sample.csv')
+bucket.download_file('train-data/pneumothorax-devset.zip', 'siim-acr-data/pneumothorax-devset.zip')
 
 # fetch the training data
-bucket.download_file('train.csv', 'siim-acr-data/train.csv')
-bucket.download_file('learn-pneumonia/pneumothorax-trainset.zip', 'siim-acr-data/pneumothorax-trainset.zip')
+bucket.download_file('train-sample.csv', 'siim-acr-data/train-sample.csv')
+bucket.download_file('train-data/pneumothorax-trainset.zip', 'siim-acr-data/pneumothorax-trainset.zip')
 
 # see DICOM folder datset for an overview of the unzipped directory structure
 zipfile.ZipFile('siim-acr-data/pneumothorax-devset.zip', 'r').extractall('siim-acr-data/dev-pneumothorax')

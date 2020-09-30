@@ -29,8 +29,8 @@ class DICOMFolderDataset(gluon.data.dataset.Dataset):
     # positive datapoints have a tuple (x,y,w,h) as prediction target
     if diagnosis == 'P':
       bbox = tuple(map(int, re.findall(r'[0-9]+', bbox)))
-      # float32 ratios for the bounding box
-      bbox = (bbox[0]/1024,bbox[1]/1024,bbox[2]/1024,bbox[3]/1024)
+      # corner format: x_min, y_min, x_max, y_max
+      bbox = (bbox[0],bbox[1],bbox[2],bbox[3])
     else:
       bbox = tuple((0.0,0.0,0.0,0.0))
 
