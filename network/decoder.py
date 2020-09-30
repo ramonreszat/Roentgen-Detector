@@ -38,9 +38,8 @@ class AnchorBoxDecoder(gluon.HybridBlock):
         anchor_points[[0, 1]] = anchor_points[[1, 0]]
         anchor_points = anchor_points.reshape(2,32,32)
 
-        with self.name_scope():
-            self.anchor_points = self.params.get_constant('anchor_points', anchor_points)
-            self.anchor_boxes = self.params.get_constant('anchor_boxes', anchor_boxes)
+        self.anchor_points = self.params.get_constant('anchor_points', anchor_points)
+        self.anchor_boxes = self.params.get_constant('anchor_boxes', anchor_boxes)
     
     def box_iou(self,F,A,G):
 
