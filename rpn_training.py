@@ -1,6 +1,7 @@
 import json
 import argparse
 
+import pandas as pd
 from mxnet import nd,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
@@ -30,6 +31,9 @@ parser.add_argument('--nms_threshold', '-nms', type=float, default=0.5)
 parser.add_argument('--iou_threshold', type=float, default=0.7, help='Threshold for an anchor box to be picked as forground')
 
 cfg = parser.parse_args()
+
+df_rpn_train = pd.DataFrame()
+df_rpn_valid = pd.DataFrame()
 
 with open('roentgen-training-params.json', 'w') as config:
     json.dump(vars(cfg), config)
@@ -94,14 +98,23 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 cumulated_loss += rpn_pred_loss.mean().asscalar()
 
                 pg.update()
+            
+            # training metrics
+            rpn_epoch_loss = {
+                'rpn_pred_loss': cumulated_loss/(len(train_data)/cfg.batch_size),
+                'rpn_cls_loss': cumulated_bce/(len(train_data)/cfg.batch_size),
+                'rpn_reg_loss': cumulated_huber/(len(train_data)/cfg.batch_size)
+            }
+            df_rpn_train = df_rpn_train.append(rpn_epoch_loss, ignore_index=True)
 
-            log.add_scalar(tag='rpn_pred_loss', value=(cumulated_loss/(len(train_data)/16)), global_step=epoch)
-            log.add_scalar(tag='rpn_cls_loss', value=(cumulated_bce/(len(train_data)/16)), global_step=epoch)
-            log.add_scalar(tag='rpn_bbox_loss', value=(cumulated_huber/(len(train_data)/16)), global_step=epoch)
+            log.add_scalar(tag='rpn_pred_loss', value=rpn_epoch_loss.get('rpn_pred_loss'), global_step=epoch)
+            log.add_scalar(tag='rpn_cls_loss', value=rpn_epoch_loss.get('rpn_cls_loss'), global_step=epoch)
+            log.add_scalar(tag='rpn_reg_loss', value=rpn_epoch_loss.get('rpn_reg_loss'), global_step=epoch)
 
 
             nd.waitall()
-            """
+
+
             with tqdm(total=int(len(valid_data)/16), desc='Validate Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
                 tp = 0
                 fp = 0
@@ -115,61 +128,34 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     labels = labels.as_in_context(ctx)
 
                     batch_size = data.shape[0]
+
                     X = data.reshape((batch_size, 1, 1024, 1024))
-
-                    ###move to AnchorBoxDecoder
-                    p = nd.broadcast_to(anchor_points.reshape(1,1,2,32,32), (batch_size,9,2,32,32))
-                    s = nd.broadcast_to(anchor_boxes.reshape(1,9,2,1,1),(batch_size,9,2,32,32)) # aw = ah = s*sqrt(r)
-                    A = nd.concat(p,s,dim=2)
-
                     G = nd.broadcast_to(labels.reshape(batch_size,1,4,1,1),(batch_size,9,4,32,32))
 
-                    IOU = box_iou(A,G)
+                    rpn_bbox_pred, rpn_bbox_ious = pneumothorax(X, labels)
 
-                    #QUICK FIX: return this from anchor box decoder
-                    # fg/bg threshold
-                    p = IOU > cfg.iou_threshold
-                        
-                    # max IOU if there is no overlap > Nt
-                    m = IOU.max(axis=(1,2,3))
-
-                    m = nd.where(m<=cfg.iou_threshold,m,-1*m)
-                    m = nd.where(m==0,m-1,m)
-
-                    for i in range(batch_size):
-                        p[i] = p[i] + (IOU[i]==m[i])
-
-                    p_reg = nd.broadcast_to(p.reshape(batch_size,9,1,32,32), (batch_size,9,4,32,32))
-                    ###
+                    #
+                    valid = rpn_bbox_ious > cfg.iou_threshold
 
                     nd.waitall()
 
-
-                    # predict regions of interest
-                    s,b = pneumothorax(X)
-                    s = nd.sigmoid(s)
-                    b = b.reshape(1,9,4,32,32)
-
-                    # apply offsets
-                    B = A + b
-
                     # calculate the confusion matrix for the classifier
-                    tp += nd.broadcast_logical_and(s > cfg.nms_threshold, p).sum().asscalar()
-                    fp += nd.broadcast_logical_and(s > cfg.nms_threshold, nd.logical_not(p)).sum().asscalar()
-                    fn += nd.broadcast_logical_and(s <= cfg.nms_threshold, p).sum().asscalar()
+                    tp += nd.broadcast_logical_and(rpn_cls_scores > cfg.nms_threshold, valid).sum().asscalar()
+                    fp += nd.broadcast_logical_and(rpn_cls_scores > cfg.nms_threshold, nd.logical_not(valid)).sum().asscalar()
+                    fn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, valid).sum().asscalar()
 
-                    # mean absolute error for bounding box regression
-                    Y = nd.multiply(p_reg,G)
-                    Y_hat = nd.multiply(p_reg,B)
+                    
+                    Y = nd.multiply(valid,G)
+                    Y_hat = nd.multiply(valid,rpn_bbox_pred)
 
-                    cumulated_error += nd.abs(Y - Y_hat).sum().asscalar()
+                    # mean squared error for bounding box regression
+                    cumulated_error += nd.square(Y - Y_hat).sum().asscalar()
                     n += (Y > 0).sum().asscalar()
 
                     pg.update()
 
-                log.add_scalar(tag='rpn_precision', value=(tp/((tp+fp) if tp>0 else 1)), global_step=epoch)
-                log.add_scalar(tag='rpn_recall', value=(tp/((tp+fn) if tp>0 else 1)), global_step=epoch)
-                log.add_scalar(tag='rpn_mae', value=(cumulated_error/n if n>0 else 0), global_step=epoch)
+                log.add_scalar(tag='rpn_local_precision', value=(tp/((tp+fp) if tp>0 else 1)), global_step=epoch)
+                log.add_scalar(tag='rpn_local_recall', value=(tp/((tp+fn) if tp>0 else 1)), global_step=epoch)
+                log.add_scalar(tag='rpn_mean_square_error', value=(cumulated_error/n if n>0 else 0), global_step=epoch)
 
-            pneumothorax.export("roentgen-region-proposal", epoch=epoch)
-            """
+            pneumothorax.export("roentgen-region-proposal-network", epoch=epoch)
