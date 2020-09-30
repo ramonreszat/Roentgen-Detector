@@ -4,7 +4,7 @@ import mxnet as mx
 from mxnet import autograd,gluon,nd
 
 
-class AnchorBoxDecoder(gluon.nn.HybridBlock):
+class AnchorBoxDecoder(gluon.HybridBlock):
     """Decode bounding boxes training target from ProposalNetwork offsets.
 
     Returned bounding boxes are in center format: (x, y, w, h).
