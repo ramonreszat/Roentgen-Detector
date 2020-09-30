@@ -42,23 +42,32 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 			self.rcnn_detector = nn.Dense(num_classes, flatten=False)
 
 	#TODO: default arguments in hybrid blocks
-	def hybrid_forward(self, F, X, labels):
+	def hybrid_forward(self, F, X, labels=None):
 		# extract features
 		feature_map = self.resnet(X)
 
 		# ROI classification and regression
-		rpn_cls_scores, rpn_bbox_pred = self.rpn(feature_map)
+		rpn_cls_scores, rpn_bbox_offsets = self.rpn(feature_map)
 
 		if autograd.is_training and self.rpn_head:
-			# decode offsets with IOU filtering
-			gt_offsets, bbox_offsets, attention_masks = self.anchor(rpn_bbox_pred, labels)
+			# decode offsets to prediction tensors
+			gt_offsets, rpn_bbox_pred, attention_masks = self.anchor(rpn_bbox_offsets, labels)
 			# split cls scores needs to be rearranged for more classes
 			rpn_cls_scores = F.reshape(rpn_cls_scores,(0,9,2,32,32))
 			
-			return rpn_cls_scores, bbox_offsets, gt_offsets, attention_masks
+			return rpn_cls_scores, rpn_bbox_pred, gt_offsets, attention_masks
+
+		elif self.rpn_head:
+			# decode ROIs with TODO: IOU filtering
+			rpn_bbox_pred, rpn_bbox_ious = self.anchor(rpn_bbox_offsets, labels)
+			# split cls scores needs to be rearranged for more classes
+			rpn_cls_scores = F.reshape(rpn_cls_scores,(0,9,2,32,32))
+
+			return rpn_cls_scores, rpn_bbox_pred, rpn_bbox_ious
+
 		else:
-			# decode ROIs from offset prediction
-			rpn_rois_pred = self.anchor(rpn_bbox_pred)
+			# decode ROIs from offset prediction TODO: bring into standard corner format and NMS filter
+			rpn_rois_pred = self.anchor(rpn_bbox_offsets)
 
 			regions = self.alignment(feature_map, rpn_rois_pred)
 			# 5 proposals post nms -> flatten if only one is allowed
