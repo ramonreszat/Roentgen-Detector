@@ -118,6 +118,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
             with tqdm(total=int(len(valid_data)/16), desc='Validate Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
                 tp = 0
                 fp = 0
+                tn = 0
                 fn = 0
 
                 n = 0
@@ -142,20 +143,32 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     # calculate the confusion matrix for the classifier
                     tp += nd.broadcast_logical_and(rpn_cls_scores > cfg.nms_threshold, valid).sum().asscalar()
                     fp += nd.broadcast_logical_and(rpn_cls_scores > cfg.nms_threshold, nd.logical_not(valid)).sum().asscalar()
+                    tn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, nd.logical_not(valid)).sum().asscalar()
                     fn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, valid).sum().asscalar()
 
                     
                     Y = nd.multiply(valid,G)
                     Y_hat = nd.multiply(valid,rpn_bbox_pred)
 
-                    # mean squared error for bounding box regression
+                    # valid normalized mean squared error for bounding box regression
                     cumulated_error += nd.square(Y - Y_hat).sum().asscalar()
                     n += (Y > 0).sum().asscalar()
 
                     pg.update()
+                
+                # validation metrics
+                rpn_valid_metrics = {
+                    'true_positive_rate': tp/(tp+fp) if tp+fp>0 else 0.0,
+                    'false_positive_rate': fp/(tp+fp) if tp+fp>0 else 0.0,
+                    'true_negative_rate': tn/(tn+fn) if tn+fn>0 else 0.0,
+                    'false_negative_rate': fn/(tn+fn) if tn+fn>0 else 0.0,
+                    'rpn_local_recall': tp/((tp+fn) if tp>0 else 1),
+                    'rpn_local_precision': tp/((tp+fp) if tp>0 else 1.0),
+                    'rpn_mean_squared_error': cumulated_error/n if n>0 else 0
+                }
 
-                log.add_scalar(tag='rpn_local_precision', value=(tp/((tp+fp) if tp>0 else 1)), global_step=epoch)
-                log.add_scalar(tag='rpn_local_recall', value=(tp/((tp+fn) if tp>0 else 1)), global_step=epoch)
-                log.add_scalar(tag='rpn_mean_square_error', value=(cumulated_error/n if n>0 else 0), global_step=epoch)
+                log.add_scalar(tag='rpn_local_recall', value=rpn_valid_metrics.get('rpn_local_recall'), global_step=epoch)
+                log.add_scalar(tag='rpn_local_precision', value=rpn_valid_metrics.get('rpn_local_precision'), global_step=epoch)
+                log.add_scalar(tag='rpn_mean_square_error', value=rpn_valid_metrics.get('rpn_mean_squared_error'), global_step=epoch)
 
             pneumothorax.export("roentgen-region-proposal-network", epoch=epoch)
