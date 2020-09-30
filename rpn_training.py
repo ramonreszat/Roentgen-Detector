@@ -166,9 +166,13 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     'rpn_local_precision': tp/((tp+fp) if tp>0 else 1.0),
                     'rpn_mean_squared_error': cumulated_error/n if n>0 else 0
                 }
+                df_rpn_valid = df_rpn_valid.append(rpn_valid_metrics, ignore_index=True)
 
                 log.add_scalar(tag='rpn_local_recall', value=rpn_valid_metrics.get('rpn_local_recall'), global_step=epoch)
                 log.add_scalar(tag='rpn_local_precision', value=rpn_valid_metrics.get('rpn_local_precision'), global_step=epoch)
                 log.add_scalar(tag='rpn_mean_square_error', value=rpn_valid_metrics.get('rpn_mean_squared_error'), global_step=epoch)
 
             pneumothorax.export("roentgen-region-proposal-network", epoch=epoch)
+
+df_rpn_train.to_csv('roentgen-training-loss.csv')
+df_rpn_valid.to_csv('roentgen-training-metrics.csv')
