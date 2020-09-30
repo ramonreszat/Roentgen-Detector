@@ -19,8 +19,8 @@ class AnchorBoxDecoder(gluon.HybridBlock):
         height of the anchor box is scaled by the given factor.
 
     """
-    def __init__(self, map_stride, iou_threshold=0.7, iou_output=False, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5]):
-        super(AnchorBoxDecoder, self).__init__()
+    def __init__(self, map_stride, iou_threshold=0.7, iou_output=False, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], **kwargs):
+        super(AnchorBoxDecoder, self).__init__(**kwargs)
         self.iou_threshold = iou_threshold
         self.iou_output = iou_output
         self.num_anchors = len(sizes) * len(ratios)
