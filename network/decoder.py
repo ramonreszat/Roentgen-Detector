@@ -86,7 +86,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         anchors = F.concat(points,sizes,dim=2)
         rpn_bbox_anchors = F.broadcast_like(anchors, rpn_bbox_offsets)
 
-        if autograd.is_training:
+        if autograd.is_recording():
             # broadcast to all sliding window positions
             ground_truth = F.broadcast_to(F.reshape(labels,(1,1,4,1,1)), (1,9,4,32,32))
             # broadcast to batch
