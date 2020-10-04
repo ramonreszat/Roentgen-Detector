@@ -107,9 +107,6 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
 
             attention =  F.reshape(attention,(0,1))
             # select maximum IOU if there is no overlap bigger than the threshold
-            print('mask shape: '+ mask.shape)
-            print('ious shape: '+ ious.shape)
-            print('attention shape: '+ attention.shape)
             attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, attention], [])
 
             # apply selection from anchor offsets
