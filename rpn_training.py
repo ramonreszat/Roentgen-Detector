@@ -73,6 +73,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 data = data.as_in_context(ctx)
                 labels = labels.as_in_context(ctx)
 
+                data.attach_grad()
                 batch_size = data.shape[0]
                 X = data.reshape((batch_size, 1, 1024, 1024))
 
