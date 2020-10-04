@@ -72,7 +72,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
     
     def and_equals(self, data, _):
         # for non-symbolic context this can be a for loop
-        return data[0] + mx.sym.broadcast_equal(data[1], data[2]), _
+        return data[0] + nd.broadcast_equal(data[1], data[2]), _
 
 
     def hybrid_forward(self, F, rpn_bbox_offsets, labels=None, **kwargs):

@@ -49,7 +49,6 @@ valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, 
 
 # Region Proposal Network (RPN) auxilliary head
 pneumothorax = RoentgenFasterRCNN(2, iou_threshold=0.7, iou_output=True, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=True)
-pneumothorax.hybridize()
 
 pos_weight = nd.array([cfg.beta],ctx=ctx)
 box_weight = nd.array([cfg.gamma,cfg.gamma,cfg.gamma,cfg.gamma],ctx=ctx)
