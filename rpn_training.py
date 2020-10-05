@@ -85,7 +85,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X, labels)
 
                     # multi-task loss
-                    print("object prediction mask: %s" % (attention_masks.shape,))
+                    print("object prediction mask: %s" % (rpn_cls_scores.shape,))
                     print("valid object mask: %s" % (attention_masks.shape,))
                     rpn_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_masks, pos_weight)
                     rpn_reg_loss = rpn_huber_loss(rpn_bbox_offsets, rpn_gt_offsets, box_weight)
