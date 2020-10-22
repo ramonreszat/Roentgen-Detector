@@ -2,7 +2,7 @@ import json
 import argparse
 
 import pandas as pd
-from mxnet import nd,gpu,init,gluon,autograd
+from mxnet import nd,cpu,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
 from network.rcnn import RoentgenFasterRCNN
@@ -12,7 +12,7 @@ from tqdm import tqdm
 from mxboard import SummaryWriter
 
 # devices
-ctx = gpu(0)
+ctx = cpu(0)
 
 parser = argparse.ArgumentParser()
 
@@ -49,6 +49,7 @@ valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, 
 
 # Region Proposal Network (RPN) auxilliary head
 pneumothorax = RoentgenFasterRCNN(2, iou_threshold=0.7, iou_output=True, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=True)
+pneumothorax.hybridize(active=False)
 
 pos_weight = nd.array([cfg.beta],ctx=ctx)
 box_weight = nd.array([cfg.gamma,cfg.gamma,cfg.gamma,cfg.gamma],ctx=ctx)
