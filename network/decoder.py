@@ -69,10 +69,6 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         Au = F.broadcast_mul(F.slice_axis(A, axis=2, begin=2, end=3),F.slice_axis(A, axis=2, begin=3, end=4)) + F.broadcast_mul(F.slice_axis(G, axis=2, begin=2, end=3),F.slice_axis(G, axis=2, begin=3, end=4)) - Ai
 
         return F.relu(F.broadcast_div(Ai,Au))
-    
-    def and_equals(self, data, _):
-        # for non-symbolic context this can be a for loop
-        return data[0] + mx.sym.broadcast_equal(data[1], data[2]), _
 
 
     def hybrid_forward(self, F, rpn_bbox_offsets, labels=None, **kwargs):
@@ -86,7 +82,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         anchors = F.concat(points,sizes,dim=2)
         rpn_bbox_anchors = F.broadcast_like(anchors, rpn_bbox_offsets)
 
-        if autograd.is_training:
+        if autograd.is_recording():
             # broadcast to all sliding window positions
             ground_truth = F.broadcast_to(F.reshape(labels,(1,1,4,1,1)), (1,9,4,32,32))
             # broadcast to batch
@@ -99,18 +95,19 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             mask = ious > self.iou_threshold
 
             # maximum IOU anchor box along all sliding window locations
-            attention = ious.max(axis=(1,2,3))
+            attention = ious.max(axis=(1,2,3,4))
             # ignore maximum smaller than the threshold
             attention = F.where(attention<=self.iou_threshold, attention, -1*attention)
             # ignore zero maximum
             attention = F.where(attention==0, attention-1, attention)
 
             # select maximum IOU if there is no overlap bigger than the threshold
-            attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, F.reshape(attention,(0,1))], [])
+            attention_mask = mask + F.broadcast_equal(ious, attention)
+            calculation_mask = F.broadcast_like(attention_mask, rpn_bbox_offsets)
 
             # apply selection from anchor offsets
-            gt_offsets = F.broadcast_mul(rpn_bbox_rois - rpn_bbox_anchors, attention_mask)
-            rpn_bbox_offsets = F.broadcast_mul(rpn_bbox_offsets, attention_mask)
+            gt_offsets = F.broadcast_mul(rpn_bbox_rois - rpn_bbox_anchors, calculation_mask)
+            rpn_bbox_offsets = F.broadcast_mul(rpn_bbox_offsets, calculation_mask)
 
             return gt_offsets, rpn_bbox_offsets, attention_mask
 
