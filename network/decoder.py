@@ -69,11 +69,6 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         Au = F.broadcast_mul(F.slice_axis(A, axis=2, begin=2, end=3),F.slice_axis(A, axis=2, begin=3, end=4)) + F.broadcast_mul(F.slice_axis(G, axis=2, begin=2, end=3),F.slice_axis(G, axis=2, begin=3, end=4)) - Ai
 
         return F.relu(F.broadcast_div(Ai,Au))
-    
-    def and_equals(self, data, _):
-        # for non-symbolic context this can be a for loop
-        return data[0] + nd.broadcast_equal(data[1], data[2]), _
-
 
     def hybrid_forward(self, F, rpn_bbox_offsets, labels=None, **kwargs):
         # split anchor and offset predictions
