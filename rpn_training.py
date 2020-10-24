@@ -73,7 +73,6 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 data = data.as_in_context(ctx)
                 labels = labels.as_in_context(ctx)
 
-                data.attach_grad()
                 batch_size = data.shape[0]
                 X = data.reshape((batch_size, 1, 1024, 1024))
 
@@ -94,9 +93,6 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 rpn_pred_loss.backward()
                 trainer.step(data.shape[0])
 
-                print(rpn_cls_loss.mean())
-                print(rpn_reg_loss.mean())
-                print(rpn_pred_loss.mean())
                 cumulated_bce += rpn_cls_loss.mean().asscalar()
                 cumulated_huber += rpn_reg_loss.mean().asscalar()
                 cumulated_loss += rpn_pred_loss.mean().asscalar()

@@ -40,7 +40,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 
 			self.rcnn_bbox_offset = nn.Dense(4, flatten=False)
 			self.rcnn_detector = nn.Dense(num_classes, flatten=False)
-			
+
 	def hybrid_forward(self, F, X, labels=None):
 		# extract features
 		feature_map = self.resnet(X)

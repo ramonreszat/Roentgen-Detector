@@ -70,6 +70,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
 
         return F.relu(F.broadcast_div(Ai,Au))
 
+
     def hybrid_forward(self, F, rpn_bbox_offsets, labels=None, **kwargs):
         # split anchor and offset predictions
         rpn_bbox_offsets = F.reshape(rpn_bbox_offsets,(0,self.num_anchors,4,32,32))
