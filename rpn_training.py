@@ -2,7 +2,7 @@ import json
 import argparse
 
 import pandas as pd
-from mxnet import nd,cpu,gpu,init,gluon,autograd
+from mxnet import nd,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
 from network.rcnn import RoentgenFasterRCNN
@@ -12,7 +12,7 @@ from tqdm import tqdm
 from mxboard import SummaryWriter
 
 # devices
-ctx = cpu(0)
+ctx = gpu(0)
 
 parser = argparse.ArgumentParser()
 
@@ -49,7 +49,7 @@ valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, 
 
 # Region Proposal Network (RPN) auxilliary head
 pneumothorax = RoentgenFasterRCNN(2, iou_threshold=0.7, iou_output=True, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=True)
-pneumothorax.hybridize(active=False)
+pneumothorax.hybridize()
 
 pos_weight = nd.array([cfg.beta],ctx=ctx)
 box_weight = nd.array([cfg.gamma,cfg.gamma,cfg.gamma,cfg.gamma],ctx=ctx)
@@ -86,8 +86,6 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X, labels)
 
                     # multi-task loss
-                    print("object prediction mask: %s" % (rpn_cls_scores.shape,))
-                    print("valid object mask: %s" % (attention_masks.shape,))
                     rpn_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_masks, pos_weight)
                     rpn_reg_loss = rpn_huber_loss(rpn_bbox_offsets, rpn_gt_offsets, box_weight)
 
@@ -96,11 +94,8 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 rpn_pred_loss.backward()
                 trainer.step(data.shape[0])
 
-                print("rpn cls loss: %s" % (rpn_cls_loss.shape,))
-                print("rpn reg loss: %s" % (rpn_reg_loss.shape,))
-                print("rpn pred loss: %s" % (rpn_pred_loss.shape,))
-                print(rpn_reg_loss.mean())
                 print(rpn_cls_loss.mean())
+                print(rpn_reg_loss.mean())
                 print(rpn_pred_loss.mean())
                 cumulated_bce += rpn_cls_loss.mean().asscalar()
                 cumulated_huber += rpn_reg_loss.mean().asscalar()

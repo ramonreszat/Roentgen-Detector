@@ -99,16 +99,14 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             mask = ious > self.iou_threshold
 
             # maximum IOU anchor box along all sliding window locations
-            attention = ious.max(axis=(1,2,3))
+            attention = ious.max(axis=(1,2,3,4))
             # ignore maximum smaller than the threshold
             attention = F.where(attention<=self.iou_threshold, attention, -1*attention)
             # ignore zero maximum
             attention = F.where(attention==0, attention-1, attention)
 
             # select maximum IOU if there is no overlap bigger than the threshold
-            attention_mask, _ = F.contrib.foreach(self.and_equals, [mask, ious, attention], [])
-
-            # broadcast the shape of the prediction mask to the anchor offsets
+            attention_mask = mask + F.broadcast_equal(ious, attention)
             calculation_mask = F.broadcast_like(attention_mask, rpn_bbox_offsets)
 
             # apply selection from anchor offsets
