@@ -115,7 +115,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
             nd.waitall()
 
 
-            with tqdm(total=int(len(valid_data)/16), desc='Validate Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
+            with tqdm(total=int(len(valid_data)/cfg.batch_size), desc='Validate Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
                 tp = 0
                 fp = 0
                 tn = 0
@@ -132,7 +132,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     X = data.reshape((batch_size, 1, 1024, 1024))
                     
                     # feed forward to get evaluation tensors
-                    rpn_bbox_pred, rpn_bbox_ious = pneumothorax(X, labels)
+                    rpn_cls_scores, rpn_bbox_pred, rpn_bbox_ious = pneumothorax(X, labels)
                     rpn_bbox_rois = nd.broadcast_to(labels.reshape(batch_size,1,4,1,1),(batch_size,9,4,32,32))
 
                     # count valid classifications
@@ -146,9 +146,11 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     tn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, nd.logical_not(valid)).sum().asscalar()
                     fn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, valid).sum().asscalar()
 
+                    # only calculate MSE for valid proposals
+                    calculation_mask = nd.broadcast_like(valid, rpn_bbox_rois)
                     
-                    Y = nd.multiply(valid, rpn_bbox_rois)
-                    Y_hat = nd.multiply(valid, rpn_bbox_pred)
+                    Y = nd.multiply(calculation_mask, rpn_bbox_rois)
+                    Y_hat = nd.multiply(calculation_mask, rpn_bbox_pred)
 
                     # valid normalized mean squared error for bounding box regression
                     cumulated_error += nd.square(Y - Y_hat).sum().asscalar()
@@ -172,7 +174,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 log.add_scalar(tag='rpn_local_precision', value=rpn_valid_metrics.get('rpn_local_precision'), global_step=epoch)
                 log.add_scalar(tag='rpn_mean_square_error', value=rpn_valid_metrics.get('rpn_mean_squared_error'), global_step=epoch)
 
-            pneumothorax.export("roentgen-region-proposal-network", epoch=epoch)
+            pneumothorax.export("roentgen-pneumothorax-rpn", epoch=epoch)
 
 df_rpn_train.to_csv('roentgen-training-loss.csv')
 df_rpn_valid.to_csv('roentgen-training-metrics.csv')
