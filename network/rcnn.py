@@ -48,7 +48,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		# ROI classification and regression
 		rpn_cls_scores, rpn_bbox_offsets = self.rpn(feature_map)
 
-		if autograd.is_training and self.rpn_head:
+		if autograd.is_recording() and self.rpn_head:
 			# decode offsets to prediction tensors
 			gt_offsets, rpn_bbox_pred, attention_masks = self.anchor(rpn_bbox_offsets, labels)
 			# split cls scores needs to be rearranged for more classes
