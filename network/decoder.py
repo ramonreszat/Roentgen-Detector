@@ -102,7 +102,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             attention = F.where(attention==0, attention-1, attention)
 
             # select maximum IOU if there is no overlap bigger than the threshold
-            attention_mask = mask + F.broadcast_equal(ious, attention)
+            attention_mask = mask + F.broadcast_equal(ious, F.reshape(attention,(0,1,1,1,1)))
             calculation_mask = F.broadcast_like(attention_mask, rpn_bbox_offsets)
 
             # apply selection from anchor offsets
@@ -128,4 +128,6 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         # inference
         else:
             # apply predictions to anchors
+
+            # non-maximum suppression (NMS)
             return rpn_bbox_anchors + rpn_bbox_offsets
