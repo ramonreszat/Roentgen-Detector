@@ -75,9 +75,9 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         # split anchor and offset predictions
         rpn_bbox_offsets = F.reshape(rpn_bbox_offsets,(0,self.num_anchors,4,32,32))
         # broadcast across all boxes 
-        points = F.broadcast_to(F.reshape(kwargs["anchor_points"],(0,1,2,32,32)), (0,self.num_anchors,2,32,32))
+        points = F.broadcast_to(F.reshape(kwargs["anchor_points"],(1,1,2,32,32)), (1,self.num_anchors,2,32,32))
         # broadcast over all points
-        sizes = F.broadcast_to(F.reshape(kwargs["anchor_boxes"],(0,9,2,1,1)), (0,self.num_anchors,2,32,32))
+        sizes = F.broadcast_to(F.reshape(kwargs["anchor_boxes"],(1,9,2,1,1)), (1,self.num_anchors,2,32,32))
         # broadcast to batch
         anchors = F.concat(points,sizes,dim=2)
         rpn_bbox_anchors = F.broadcast_like(anchors, rpn_bbox_offsets)
