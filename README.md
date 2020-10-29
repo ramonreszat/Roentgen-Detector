@@ -1,5 +1,5 @@
 # Screening X-ray images
-Fit a series of DICOM X-ray images to Faster R-CNN using an alternating training procedure.
+Fit a series X-ray images from DICOM reports to Faster R-CNN using an alternating training procedure.
 
 ```shell
 # approximate region proposal network
