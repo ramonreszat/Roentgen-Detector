@@ -159,8 +159,8 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             # slice ymin/xmin/ymay/xmax = [id, a, 1, 32, 32] along axis 2
             ymin, xmin, ymax, xmax = self.corner_format(F, rpn_bbox_pred)
 
-            # transform to [id, score, xmin, ymin, xmax, ymax]
+            # TODO: extract rois into format roi=[id, score, xmin, ymin, xmax, ymax]
 
             # feed rpn_cls_scores for this
             #mx.sym.softmax(rpn_cls,axis=)
-            return rpn_bbox_anchors + rpn_bbox_offsets
+            return rpn_bbox_rois

@@ -63,14 +63,17 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 				return rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_mask
 
 		else:
-			# decode ROIs from offset prediction TODO: bring into standard corner format and NMS filter
-			rpn_rois_pred = self.anchor_decoder(rpn_bbox_offsets)
+			# TODO: bring ROIS into standard corner format
+			rpn_bbox_rois = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets)
 
-			regions = self.alignment(feature_map, rpn_rois_pred)
+			# TODO: non maximum suppression (NMS)
+
+			regions = self.alignment(feature_map, rpn_bbox_rois)
 			# 5 proposals post nms -> flatten if only one is allowed
 			roi_features = self.fast_rcnn(F.reshape(regions, shape=(0,5,-1)))
 
-			rcnn_bbox_pred = rpn_rois_pred + self.rcnn_bbox_offset(roi_features)
+			# TODO: add from a list for soft nms or watch for the shapes
+			rcnn_bbox_pred = rpn_bbox_rois + self.rcnn_bbox_offset(roi_features)
 			rcnn_class_pred = self.rcnn_detector(roi_features)
 
 			return rcnn_bbox_pred, rcnn_class_pred
