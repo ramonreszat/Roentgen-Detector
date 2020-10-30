@@ -48,7 +48,7 @@ valid_loader = gluon.data.DataLoader(valid_data, cfg.batch_size, shuffle=False, 
 
 
 # Region Proposal Network (RPN) auxilliary head
-pneumothorax = RoentgenFasterRCNN(2, iou_threshold=0.7, iou_output=True, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=True)
+pneumothorax = RoentgenFasterRCNN(2, iou_threshold=0.7, cls_threshold=0.5, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=True, iou_output=True)
 pneumothorax.hybridize()
 
 pos_weight = nd.array([cfg.beta],ctx=ctx)
@@ -76,16 +76,26 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 batch_size = data.shape[0]
                 X = data.reshape((batch_size, 1, 1024, 1024))
 
+                # broadcast to all sliding window positions
+                y = nd.broadcast_to(nd.reshape(labels,(0,1,4,1,1)), (0,9,4,32,32))
+
                 box_weight = nd.broadcast_to(box_weight.reshape(1,1,4,1,1), (batch_size,9,4,32,32))
 
                 nd.waitall()
 
                 with autograd.record():
                     # proposal generation
-                    rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_masks = pneumothorax(X, labels)
+                    rpn_cls_scores, rpn_bbox_anchors, rpn_bbox_offsets, attention_mask = pneumothorax(X, labels)
+
+                    #
+                    calculation_mask = nd.broadcast_like(attention_mask, rpn_bbox_offsets)
+
+                    # 
+                    rpn_gt_offsets = nd.broadcast_mul(y - rpn_bbox_anchors, calculation_mask)
+                    rpn_bbox_offsets = nd.broadcast_mul(rpn_bbox_offsets, calculation_mask)
 
                     # multi-task loss
-                    rpn_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_masks, pos_weight)
+                    rpn_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_mask, pos_weight)
                     rpn_reg_loss = rpn_huber_loss(rpn_bbox_offsets, rpn_gt_offsets, box_weight)
 
                     rpn_pred_loss = rpn_cls_loss/cfg.Ncls + cfg.balance*rpn_reg_loss/cfg.Nreg
@@ -134,8 +144,11 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     X = data.reshape((batch_size, 1, 1024, 1024))
                     
                     # feed forward to get evaluation tensors
-                    rpn_cls_scores, rpn_bbox_pred, rpn_bbox_ious = pneumothorax(X, labels)
+                    rpn_bbox_anchors, rpn_bbox_offsets, attention_mask, rpn_bbox_ious = pneumothorax(X, labels)
                     rpn_bbox_rois = nd.broadcast_to(labels.reshape(batch_size,1,4,1,1),(batch_size,9,4,32,32))
+
+                    # apply offsets to anchors
+                    rpn_bbox_pred = rpn_bbox_anchors + rpn_bbox_offsets
 
                     # count valid classifications
                     valid = rpn_bbox_ious > cfg.iou_threshold
