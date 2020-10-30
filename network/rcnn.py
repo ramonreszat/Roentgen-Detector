@@ -19,17 +19,18 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 		for alternating and class agnostic training.
 
     """
-	def __init__(self, num_classes, iou_threshold=0.7, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False, iou_output=False):
+	def __init__(self, num_classes, iou_threshold=0.7, cls_threshold=0.5, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=False, iou_output=False):
 		super(RoentgenFasterRCNN, self).__init__()
 		self.rpn_head = rpn_head
-		self.iou_outpu = iou_output
+		self.iou_output = iou_output
 
 		# backbone feature extraction network
 		self.resnet = RoentgenResnet(64, conv_arch=[(2, 64), (2, 128), (2, 256), (2, 512)])
 		# RPN head region proposal network 
 		self.rpn = ProposalNetwork(512, num_anchors=9, anchor_points=(32,32))
 		# anchor boxes of fixed size and ratio
-		self.anchor_decoder = AnchorBoxDecoder(32, iou_threshold=iou_threshold, sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=rpn_head, iou_output=iou_output)
+		self.anchor_decoder = AnchorBoxDecoder(32, iou_threshold=iou_threshold, cls_threshold=cls_threshold,
+								sizes=[0.25,0.15,0.05], ratios=[2,1,0.5], rpn_head=rpn_head, iou_output=iou_output)
 
 		if not rpn_head:
 			self.alignment = ROIAlignmentLayer((8,8), spatial_scale=0.03125)
@@ -56,7 +57,7 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 			# decode offsets for training
 			if self.iou_output:
 				rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets, labels)
-				return rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious
+				return rpn_cls_scores, rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious
 			else:
 				rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, attention_mask = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets, labels)
 				return rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_mask
