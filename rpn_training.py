@@ -85,14 +85,7 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
 
                 with autograd.record():
                     # proposal generation
-                    rpn_cls_scores, rpn_bbox_anchors, rpn_bbox_offsets, attention_mask = pneumothorax(X, labels)
-
-                    #
-                    calculation_mask = nd.broadcast_like(attention_mask, rpn_bbox_offsets)
-
-                    # 
-                    rpn_gt_offsets = nd.broadcast_mul(y - rpn_bbox_anchors, calculation_mask)
-                    rpn_bbox_offsets = nd.broadcast_mul(rpn_bbox_offsets, calculation_mask)
+                    rpn_cls_scores, rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious = pneumothorax(X, labels)
 
                     # multi-task loss
                     rpn_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_mask, pos_weight)
@@ -128,13 +121,12 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
 
 
             with tqdm(total=int(len(valid_data)/cfg.batch_size), desc='Validate Region Proposals (RPN): Epoch {}'.format(epoch)) as pg:
-                tp = 0
-                fp = 0
-                tn = 0
-                fn = 0
+                tp = 0; fp = 0; tn = 0; fn = 0
+                cumulated_error = 0; n = 0
 
-                n = 0
-                cumulated_error = 0
+                cumulated_valid_pred_loss = 0
+                cumulated_valid_cls_loss = 0
+                cumulated_valid_reg_loss = 0
 
                 for i, (data, labels) in enumerate(valid_loader):
                     data = data.as_in_context(ctx)
@@ -144,8 +136,12 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                     X = data.reshape((batch_size, 1, 1024, 1024))
                     
                     # feed forward to get evaluation tensors
-                    rpn_bbox_anchors, rpn_bbox_offsets, attention_mask, rpn_bbox_ious = pneumothorax(X, labels)
-                    rpn_bbox_rois = nd.broadcast_to(labels.reshape(batch_size,1,4,1,1),(batch_size,9,4,32,32))
+                    rpn_cls_scores, rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious = pneumothorax(X, labels)
+
+                    rpn_valid_cls_loss = rpn_cross_entropy(rpn_cls_scores, attention_mask, pos_weight)
+                    rpn_valid_reg_loss = rpn_huber_loss(rpn_bbox_offsets, rpn_gt_offsets, box_weight)
+
+                    rpn_valid_pred_loss = rpn_valid_cls_loss/cfg.Ncls + cfg.balance*rpn_valid_reg_loss/cfg.Nreg
 
                     # apply offsets to anchors
                     rpn_bbox_pred = rpn_bbox_anchors + rpn_bbox_offsets
@@ -155,26 +151,28 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
 
                     nd.waitall()
 
+                    # calculated validation loss
+                    cumulated_valid_cls_loss += rpn_valid_cls_loss.mean().asscalar()
+                    cumulated_valid_reg_loss += rpn_valid_reg_loss.mean().asscalar()
+                    cumulated_valid_pred_loss += rpn_valid_pred_loss.mean().asscalar()
+
                     # calculate the confusion matrix for the classifier
                     tp += nd.broadcast_logical_and(rpn_cls_scores > cfg.nms_threshold, valid).sum().asscalar()
                     fp += nd.broadcast_logical_and(rpn_cls_scores > cfg.nms_threshold, nd.logical_not(valid)).sum().asscalar()
                     tn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, nd.logical_not(valid)).sum().asscalar()
                     fn += nd.broadcast_logical_and(rpn_cls_scores <= cfg.nms_threshold, valid).sum().asscalar()
 
-                    # only calculate MSE for valid proposals
-                    calculation_mask = nd.broadcast_like(valid, rpn_bbox_rois)
-                    
-                    Y = nd.multiply(calculation_mask, rpn_bbox_rois)
-                    Y_hat = nd.multiply(calculation_mask, rpn_bbox_pred)
-
                     # valid normalized mean squared error for bounding box regression
-                    cumulated_error += nd.square(Y - Y_hat).sum().asscalar()
-                    n += (Y > 0).sum().asscalar()
+                    cumulated_error += nd.square(rpn_ground_truth - rpn_bbox_pred).sum().asscalar()
+                    n += (rpn_ground_truth > 0).sum().asscalar()
 
                     pg.update()
                 
                 # validation metrics
                 rpn_valid_metrics = {
+                    'rpn_valid_cls_loss': cumulated_valid_cls_loss/cfg.batch_size,
+                    'rpn_valid_reg_loss': cumulated_valid_reg_loss/cfg.batch_size,
+                    'rpn_valid_pred_loss': cumulated_valid_pred_loss/cfg.batch_size,
                     'true_positive_rate': tp/(tp+fp) if tp+fp>0 else 0.0,
                     'false_positive_rate': fp/(tp+fp) if tp+fp>0 else 0.0,
                     'true_negative_rate': tn/(tn+fn) if tn+fn>0 else 0.0,
@@ -188,6 +186,9 @@ with SummaryWriter(logdir='./logs/pneumothorax-rpn') as log:
                 log.add_scalar(tag='rpn_local_recall', value=rpn_valid_metrics.get('rpn_local_recall'), global_step=epoch)
                 log.add_scalar(tag='rpn_local_precision', value=rpn_valid_metrics.get('rpn_local_precision'), global_step=epoch)
                 log.add_scalar(tag='rpn_mean_square_error', value=rpn_valid_metrics.get('rpn_mean_squared_error'), global_step=epoch)
+                log.add_scalar(tag='rpn_valid_cls_loss', value=rpn_valid_metrics.get('rpn_valid_cls_loss'), global_step=epoch)
+                log.add_scalar(tag='rpn_valid_reg_loss', value=rpn_valid_metrics.get('rpn_valid_reg_loss'), global_step=epoch)
+                log.add_scalar(tag='rpn_valid_pred_loss', value=rpn_valid_metrics.get('rpn_valid_pred_loss'), global_step=epoch)
 
             pneumothorax.export("roentgen-pneumothorax-rpn", epoch=epoch)
 

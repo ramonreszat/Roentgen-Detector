@@ -44,6 +44,24 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             self.anchor_points = self.params.get_constant('anchor_points', anchor_points)
             self.anchor_boxes = self.params.get_constant('anchor_boxes', anchor_boxes)
     
+    def center_format(self, F, bbox):
+        """
+        corner format: [xmin, ymin, xmax, ymax]
+        conversion to center format:
+            w = xmax - xmin
+            h = ymax - ymin
+            x = xmin + w/2
+            y = ymin + h/2
+        """
+        w = F.slice_axis(bbox, axis=2, begin=2, end=3) - F.slice_axis(bbox, axis=2, begin=0, end=1)
+        h = F.slice_axis(bbox, axis=2, begin=3, end=4) - F.slice_axis(bbox, axis=2, begin=1, end=2)
+        x = F.slice_axis(bbox, axis=2, begin=0, end=1) + w/2
+        y = F.slice_axis(bbox, axis=2, begin=1, end=2) + h/2
+
+        return F.concat(x,y,w,h,dim=2)
+
+
+
     def corner_format(self, F, bbox):
         """
         conversion to corner format:
@@ -93,6 +111,9 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             # broadcast to all sliding window positions
             ground_truth = F.broadcast_to(F.reshape(labels,(0,1,4,1,1)), (0,9,4,32,32))
 
+            # offsets are computed for center format
+            ground_truth = self.center_format(F, ground_truth)
+
             # intersection over union
             ious = self.box_iou(F,rpn_bbox_anchors, ground_truth)
 
@@ -109,15 +130,23 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
             # select maximum IOU if there is no overlap bigger than the threshold
             attention_mask = mask + F.broadcast_equal(ious, F.reshape(attention,(0,1,1,1,1)))
 
+            # create a mask for iou selection
+            calculation_mask = F.broadcast_like(attention_mask, rpn_bbox_offsets)
+
+            # mask out invalid values
+            rpn_gt_offsets = F.broadcast_mul(ground_truth - rpn_bbox_anchors, calculation_mask)
+            rpn_bbox_offsets = F.broadcast_mul(rpn_bbox_offsets, calculation_mask)
+            rpn_bbox_anchors = F.broadcast_mul(rpn_bbox_anchors, calculation_mask)
+
             if self.iou_output:
                 # apply predicted offset to anchors
                 rpn_bbox_pred = rpn_bbox_anchors + rpn_bbox_offsets
 
                 rpn_bbox_ious = self.box_iou(F,rpn_bbox_pred, ground_truth)
 
-                return rpn_bbox_anchors, rpn_bbox_offsets, attention_mask, rpn_bbox_ious
+                return rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, ground_truth, attention_mask, rpn_bbox_ious
             else:
-                return rpn_bbox_anchors, rpn_bbox_offsets, attention_mask
+                return rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, attention_mask
         
         # construct network in inference mode
         else:

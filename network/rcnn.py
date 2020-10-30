@@ -55,11 +55,11 @@ class RoentgenFasterRCNN(gluon.nn.HybridBlock):
 
 			# decode offsets for training
 			if self.iou_output:
-				rpn_bbox_anchors, rpn_bbox_offsets, attention_mask, rpn_bbox_ious = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets, labels)
-				return rpn_cls_scores, rpn_bbox_offsets, attention_mask, rpn_bbox_ious
+				rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets, labels)
+				return rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, rpn_ground_truth, attention_mask, rpn_bbox_ious
 			else:
-				rpn_bbox_anchors, rpn_bbox_offsets, attention_mask = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets, labels)
-				return rpn_cls_scores, rpn_bbox_offsets, attention_mask
+				rpn_bbox_anchors, rpn_bbox_offsets, rpn_gt_offsets, attention_mask = self.anchor_decoder(rpn_cls_scores, rpn_bbox_offsets, labels)
+				return rpn_cls_scores, rpn_bbox_offsets, rpn_gt_offsets, attention_mask
 
 		else:
 			# decode ROIs from offset prediction TODO: bring into standard corner format and NMS filter
