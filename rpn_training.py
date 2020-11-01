@@ -2,17 +2,17 @@ import json
 import argparse
 
 import pandas as pd
-from mxnet import nd,gpu,init,gluon,autograd
+from mxnet import nd,cpu,gpu,init,gluon,autograd
 
 from data.dicom import DICOMFolderDataset
-from network.rcnn import RoentgenFasterRCNN
-from network.decoder import AnchorBoxDecoder
+from rcnn.fasterrcnn import RoentgenFasterRCNN
+from rcnn.decoder import AnchorBoxDecoder
 
 from tqdm import tqdm
 from mxboard import SummaryWriter
 
 # devices
-ctx = gpu(0)
+ctx = cpu(0)
 
 parser = argparse.ArgumentParser()
 

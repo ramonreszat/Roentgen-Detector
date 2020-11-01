@@ -3,7 +3,6 @@ from mxnet.gluon import nn
 
 from rcnn.residual import stack_resnet_block
 
-
 class RoentgenResnet(gluon.nn.HybridBlock):
 	"""Feature extraction using standard resnet architecture.
 
