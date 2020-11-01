@@ -1,8 +1,8 @@
+import mxnet as mx
+from mxnet import gluon
+
 import itertools
 import numpy as np
-import mxnet as mx
-from mxnet import autograd,gluon,nd
-
 
 class AnchorBoxDecoder(gluon.nn.HybridBlock):
     """Decode bounding boxes training target from ProposalNetwork offsets.
@@ -34,7 +34,7 @@ class AnchorBoxDecoder(gluon.nn.HybridBlock):
         dy = range(int(map_stride/2),int(1024),map_stride)
 
         anchor_points = list(itertools.product(dy,dx))
-        anchor_points = nd.array(anchor_points, dtype=np.float32)
+        anchor_points = mx.nd.array(anchor_points, dtype=np.float32)
 
         anchor_points = anchor_points.transpose()/1024
         anchor_points[[0, 1]] = anchor_points[[1, 0]]
